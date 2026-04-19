@@ -1,5 +1,6 @@
 ﻿# 依赖
 node_modules/
+.tools/node/
 
 # 包管理器调试日志
 npm-debug.log*
@@ -22,8 +23,9 @@ pnpm-debug.log*
 Thumbs.db
 desktop.ini
 
-# IDE（可选保留团队共享配置）
+# IDE
 .idea/
 .vscode/*
+.cursor/*
 !.vscode/extensions.json
 !.vscode/settings.json
