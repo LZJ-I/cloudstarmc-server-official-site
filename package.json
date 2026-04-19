@@ -1,0 +1,14 @@
+{
+  "name": "server-official-site",
+  "private": true,
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@picocss/pico": "^2.1.1",
+    "express": "^4.22.1",
+    "express-session": "^1.19.0",
+    "marked": "^15.0.6",
+    "multer": "^2.1.1"
+  }
+}

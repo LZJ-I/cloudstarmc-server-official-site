@@ -1,0 +1,310 @@
+/* =============================================================
+   overhaul.css - yunxing v2 visual/interaction/perf fix layer
+   ============================================================= */
+
+:root{
+  --accent:#fb923c;
+  --accent-2:#ea580c;
+  --card-bg:linear-gradient(155deg,rgba(20,22,32,.72),rgba(10,11,18,.78));
+  --card-border:rgba(255,255,255,.08);
+  --ease-out:cubic-bezier(.22,1,.36,1);
+}
+
+html{scroll-padding-top:112px}
+body{background:
+  radial-gradient(1200px 700px at 50% -10%,rgba(249,115,22,.08),transparent 55%),
+  radial-gradient(900px 500px at 100% 30%,rgba(99,102,241,.05),transparent 50%),
+  linear-gradient(180deg,#030308 0%,#000 42%,#000 100%)}
+
+::selection{background:rgba(251,146,60,.35);color:#fff}
+
+:where(a,button,[tabindex]):focus-visible{
+  outline:2px solid rgba(251,146,60,.85);
+  outline-offset:3px;
+  border-radius:8px
+}
+
+/* ---------- Nav (desktop) ---------- */
+@media (min-width:901px){
+  .nav__inner{padding-top:10px;padding-bottom:10px;min-height:64px}
+  .nav__drawer{position:static;flex:1 1 auto}
+  .nav__links.nav__shell{gap:12px;justify-content:center}
+  .nav__primary{position:relative;left:auto;top:auto;transform:none;margin:0;flex:0 0 auto;width:auto;min-width:0}
+  .nav__primary .nav__route--main{flex:1 1 0;min-width:0;text-align:center;justify-content:center}
+}
+
+.nav__primary{background:rgba(0,0,0,.5);border-color:rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 10px 30px rgba(0,0,0,.35)}
+.nav__links .nav__route--main.is-active{
+  background:linear-gradient(145deg,rgba(251,146,60,.55),rgba(234,88,12,.42));
+  box-shadow:0 0 0 1px rgba(249,115,22,.45),0 8px 24px rgba(234,88,12,.28);
+}
+
+/* ---------- Team arrow direction fix ---------- */
+.or-team__pix3--l i{background:#fcd34d}
+.or-team__pix3--l i:nth-child(1){left:auto;right:0;bottom:0}
+.or-team__pix3--l i:nth-child(2){left:0;right:auto;bottom:4px}
+.or-team__pix3--l i:nth-child(3){left:auto;right:0;bottom:8px}
+.or-team__pix3--r i:nth-child(1){left:0;right:auto;bottom:0}
+.or-team__pix3--r i:nth-child(2){left:auto;right:0;bottom:4px}
+.or-team__pix3--r i:nth-child(3){left:0;right:auto;bottom:8px}
+
+.or-team__icon-btn{
+  width:44px;height:44px;border-radius:12px;
+  background:transparent;
+  border:none;
+  transition:background .2s var(--ease-out),transform .15s var(--ease-out);
+}
+.or-team__icon-btn:hover{background:rgba(251,146,60,.12);opacity:1}
+.or-team__icon-btn:active{transform:scale(.9)}
+
+/* ---------- Team portrait: remove black bg, blend with glass ---------- */
+.or-team__right{
+  background:
+    radial-gradient(80% 70% at 75% 15%,rgba(251,146,60,.2),transparent 55%),
+    radial-gradient(80% 80% at 15% 90%,rgba(99,102,241,.12),transparent 60%),
+    linear-gradient(155deg,rgba(18,20,30,.78),rgba(8,9,16,.88));
+}
+.or-team__portrait-stack{
+  border:none;
+  box-shadow:none;
+  background:transparent;
+}
+.or-team__portrait-img{
+  background:transparent !important;
+  filter:drop-shadow(0 18px 40px rgba(0,0,0,.55)) drop-shadow(0 0 24px rgba(251,146,60,.08));
+  object-fit:contain;
+  padding:0;
+}
+
+.or-team__progress{background:rgba(255,255,255,.05)}
+.or-team__progress-bar{background:linear-gradient(90deg,rgba(251,146,60,.9),rgba(234,88,12,.95));box-shadow:0 0 12px rgba(251,146,60,.35)}
+
+/* ---------- Hero meteor shower ---------- */
+.hero__meteors{
+  position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden;
+}
+.hero__meteors i{
+  position:absolute;top:var(--my,-5%);left:var(--mx,50%);
+  width:2px;height:2px;border-radius:50%;
+  background:#fff;
+  box-shadow:0 0 8px 2px rgba(255,255,255,.55);
+  transform:rotate(215deg);
+  animation:meteorFall var(--md,5s) linear var(--delay,0s) infinite;
+  opacity:0;
+}
+.hero__meteors i::before{
+  content:"";position:absolute;top:50%;left:0;
+  width:var(--ml,160px);height:1px;
+  background:linear-gradient(90deg,
+    rgba(255,255,255,.9) 0%,
+    rgba(253,186,116,.65) 35%,
+    rgba(251,146,60,.2) 75%,
+    transparent 100%);
+  transform:translate(-100%,-50%);
+  filter:blur(.5px);
+}
+@keyframes meteorFall{
+  0%{opacity:0;transform:rotate(215deg) translateX(0)}
+  8%{opacity:1}
+  70%{opacity:1}
+  100%{opacity:0;transform:rotate(215deg) translateX(var(--dist,520px))}
+}
+@media (prefers-reduced-motion:reduce){
+  .hero__meteors{display:none}
+}
+
+.hero__meteor{
+  box-shadow:0 0 14px rgba(253,186,116,.5),0 0 30px rgba(251,146,60,.22);
+}
+
+.hero__cubes span{
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.2),rgba(255,255,255,.02) 45%,rgba(251,146,60,.18) 100%);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:3px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.15),
+    inset 0 -6px 14px rgba(0,0,0,.35),
+    0 10px 32px rgba(0,0,0,.45);
+  image-rendering:pixelated;
+}
+
+.hero__content{padding-block:clamp(104px,16vh,160px) clamp(84px,14vh,132px)}
+.hero__title{letter-spacing:-.025em}
+
+/* ---------- Buttons ---------- */
+.btn{
+  letter-spacing:.02em;
+  transition:transform .15s var(--ease-out),background .25s var(--ease-out),box-shadow .25s var(--ease-out),border-color .2s var(--ease-out);
+}
+.btn--primary{
+  background:linear-gradient(145deg,#fdba74,#ea580c);
+  color:#140a02;
+  box-shadow:0 12px 32px rgba(234,88,12,.32),inset 0 1px 0 rgba(255,255,255,.35);
+}
+.btn--primary:hover{transform:translateY(-2px);box-shadow:0 16px 40px rgba(234,88,12,.42),inset 0 1px 0 rgba(255,255,255,.4)}
+.btn--primary:active{transform:translateY(0) scale(.98)}
+.btn--ghost{backdrop-filter:blur(12px) saturate(1.1)}
+.btn--ghost:hover{border-color:rgba(251,146,60,.45);color:#fff}
+
+/* ---------- Sections / cards ---------- */
+.section{padding:clamp(64px,9vw,112px) clamp(16px,4vw,28px)}
+.section__head h2{
+  background:linear-gradient(135deg,#fff 0%,#fde68a 45%,#fb923c 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  letter-spacing:-.02em;
+}
+.feature-card{
+  background:var(--card-bg);
+  border-color:var(--card-border);
+  transition:transform .3s var(--ease-out),border-color .3s var(--ease-out),box-shadow .3s var(--ease-out);
+}
+.feature-card:hover{transform:translateY(-4px);border-color:rgba(251,146,60,.3);box-shadow:0 30px 60px rgba(0,0,0,.5),0 0 0 1px rgba(251,146,60,.12)}
+
+.tabs__list{background:rgba(0,0,0,.45);backdrop-filter:blur(10px)}
+.tabs__btn{transition:color .2s var(--ease-out),background .2s var(--ease-out),transform .15s var(--ease-out)}
+.tabs__btn:not(.is-active):hover{color:#fff;background:rgba(255,255,255,.06)}
+.tabs__btn.is-active{box-shadow:0 8px 24px rgba(253,230,138,.22)}
+
+/* ---------- Social ---------- */
+.social__inner{
+  flex-direction:row;
+  align-items:center;
+  justify-content:space-between;
+  gap:clamp(20px,4vw,40px);
+  padding:clamp(22px,4vw,34px);
+}
+.social__inner>div:first-child{flex:1 1 auto}
+.social__cta{display:flex;width:auto;align-self:center;flex-shrink:0}
+.social__cta .btn--lg{width:auto;min-width:200px}
+
+.footer{padding:36px clamp(16px,4vw,28px) max(36px,env(safe-area-inset-bottom,0px))}
+.footer__inner{font-size:13px}
+
+.hero__scroll{opacity:.5;transition:opacity .3s var(--ease-out)}
+.hero__scroll:hover{opacity:.9}
+
+/* ============================================================
+   Mobile overhaul (<= 900px)
+   ============================================================ */
+@media (max-width:900px){
+  html{scroll-padding-top:76px}
+
+  .nav__inner{padding:8px 12px;min-height:56px}
+  .nav__primary{padding:4px;border-radius:14px}
+  .nav__route--main{padding:10px 16px !important;font-size:14px !important;flex:1}
+  .nav--open .nav__drawer{padding:14px 12px 16px}
+
+  .hero{min-height:100svh;padding:0}
+  .hero__content{
+    padding:max(96px,calc(env(safe-area-inset-top,0px) + 64px)) 22px max(80px,env(safe-area-inset-bottom,0px));
+    max-width:100%;
+    text-align:left;
+  }
+  .hero__title{font-size:clamp(2rem,8vw,2.8rem);line-height:1.1}
+  .hero__lead{font-size:15.5px;line-height:1.6;margin-bottom:24px}
+  .hero__actions{gap:10px}
+  .hero__actions .btn{padding:13px 18px;font-size:15px}
+  .hero__scroll{left:22px;bottom:18px}
+  .hero__cubes{display:none}
+  .hero__photo{inset:0}
+  .hero__sparkles{opacity:.2}
+  .hero__meteors i{transform:rotate(205deg)}
+  .hero__meteors i::before{width:110px}
+
+  .section{padding:56px 18px}
+  .section__head h2{font-size:28px;line-height:1.2}
+  .section__head p{font-size:15px}
+
+  .tabs__list{
+    flex-direction:row;flex-wrap:nowrap;
+    overflow-x:auto;overflow-y:hidden;
+    scroll-snap-type:x mandatory;
+    -webkit-overflow-scrolling:touch;
+    padding:6px;gap:4px;
+    border-radius:999px;
+    scrollbar-width:none;
+  }
+  .tabs__list::-webkit-scrollbar{display:none}
+  .tabs__btn{
+    flex:0 0 auto;width:auto;
+    padding:10px 16px;font-size:13.5px;
+    scroll-snap-align:center;
+    white-space:nowrap;
+  }
+
+  .feature-grid{gap:16px}
+  .feature-card{padding:18px}
+  .feature-card__big{font-size:clamp(32px,8vw,42px)}
+
+  .or-team-section{padding:48px 12px}
+  .or-team{padding:0}
+  .or-team__parchment{border-radius:18px}
+  .or-team__grid{grid-template-columns:1fr;min-height:0}
+  .or-team__right{
+    order:-1;min-height:0;
+    padding:16px 16px 0;
+    background:
+      radial-gradient(80% 60% at 50% 30%,rgba(251,146,60,.18),transparent 60%),
+      linear-gradient(180deg,rgba(18,20,30,.7),rgba(8,9,16,.85));
+  }
+  .or-team__portrait-stack{
+    min-height:0;
+    aspect-ratio:4/5;
+    max-height:52vh;
+    border-radius:14px;
+  }
+  .or-team__left{
+    padding:18px 18px 20px;
+    gap:14px;
+    border-right:0;
+    border-top:1px solid rgba(255,255,255,.06);
+  }
+  .or-team__title{font-size:20px}
+  .or-team__subtitle{font-size:13.5px}
+  .or-team__fade-wrap{min-height:140px}
+  .or-team__slide-stack{min-height:130px}
+  .or-team__headline{font-size:18px;gap:8px}
+  .or-team__title-pill{font-size:12px;padding:4px 10px}
+  .or-team__bio{font-size:14px;line-height:1.58}
+  .or-team__controls{gap:8px}
+  .or-team__icon-btn{width:40px;height:40px}
+  .or-team__strip{max-width:calc(100% - 92px)}
+  .or-team__face{width:44px;height:44px;border-radius:10px}
+
+  .social{padding:48px 16px}
+  .social__inner{flex-direction:column;align-items:stretch;padding:22px 18px}
+  .social__inner h2{font-size:24px}
+  .social__cta{width:100%}
+  .social__cta .btn--lg{width:100%;min-width:0;padding:14px 20px}
+
+  .footer{padding:28px 16px max(28px,env(safe-area-inset-bottom,0px))}
+  .footer__inner{flex-direction:column;align-items:flex-start;gap:8px;font-size:12.5px}
+
+  .hero__meteors i:nth-child(n+5){display:none}
+}
+
+@media (max-width:420px){
+  .hero__title{font-size:30px}
+  .hero__lead{font-size:14.5px}
+  .nav__route--main{font-size:13px !important;padding:9px 12px !important}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .hero__cubes span,.hero__meteor{animation:none !important}
+  .or-team__slide-pane,.or-team__portrait-pane{transition:none !important}
+}
+@media (max-width:900px) and (hover:none){
+  .feature-card:hover{transform:none;box-shadow:var(--shadow)}
+  .or-team__face:hover{transform:none}
+}
+
+/* 去掉主页/百科各 section 之间的四格像素装饰条 */
+.section + .section::before{
+  content:none !important;
+  display:none !important;
+  width:0 !important;
+  height:0 !important;
+  margin:0 !important;
+  background:none !important;
+}

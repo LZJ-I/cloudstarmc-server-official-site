@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN" class="is-booting">
+<head>
+<meta charset="UTF-8"/>
+<base href="/"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="theme-color" content="#06060c" media="(prefers-color-scheme: dark)"/>
+<meta name="theme-color" content="#030308"/>
+<title>云星 · 社区服务器</title>
+<link rel="icon" href="/img/favicon.png" type="image/png" sizes="32x32"/>
+<link rel="apple-touch-icon" href="/img/favicon.png"/>
+<meta name="description" content="云星（Cloud Star）是 Minecraft: Java Edition 社区服务器：自定义内容、稳定联机与官方 QQ 群。加入冒险：cloudstarmc.cn"/>
+<meta property="og:title" content="云星 Minecraft 服务器"/>
+<meta property="og:site_name" content="云星"/>
+<meta property="og:description" content="自定义内容、稳定联机与活跃社区。复制 IP 加入 cloudstarmc.cn"/>
+<link rel="stylesheet" href="https://use.typekit.net/bhe1eni.css"/>
+<link rel="preload" href="img/hero.png" as="image" fetchpriority="high"/>
+<link rel="stylesheet" href="css/style.css"/><link rel="stylesheet" href="css/overhaul.css"/>
+</head>
+<body class="font-proxima is-booting">
+<div id="page-loader" class="page-loader" aria-busy="true" aria-live="polite" role="status">
+<div class="page-loader__backdrop" aria-hidden="true"></div>
+<div class="page-loader__content">
+<div class="page-loader__mark">云星</div>
+<div class="page-loader__orbit" aria-hidden="true"><span></span><span></span><span></span></div>
+<div class="page-loader__bar" aria-hidden="true"><span class="page-loader__bar-fill"></span></div>
+<p class="page-loader__hint">正在载入</p>
+</div>
+</div>
+<div class="noise" aria-hidden="true"></div>
+<header class="nav" id="nav">
+<div class="nav__inner">
+<div class="nav__spacer" aria-hidden="true"></div>
+<div class="nav__drawer" id="navDrawer">
+<nav class="nav__links nav__shell" aria-label="主导航">
+<div class="nav__primary">
+<a href="/home" class="nav__route nav__route--main is-active" data-route="home" aria-current="page">主页</a>
+<a href="/wiki" class="nav__route nav__route--main" data-route="wiki" aria-current="false">百科</a>
+</div>
+<div class="nav__sub-slot" id="navSubSlot" aria-live="polite">
+<div id="navWikiAnchors" class="nav__sub nav__sub--wiki" aria-hidden="true"></div>
+</div>
+</nav>
+</div>
+<div class="nav__spacer nav__spacer--tail" aria-hidden="true"></div>
+<button class="nav__burger" type="button" id="navToggle" aria-controls="navDrawer" aria-expanded="false" aria-label="打开菜单">
+<span class="nav__burger-line"></span><span class="nav__burger-line"></span><span class="nav__burger-line"></span>
+</button>
+</div>
+</header>
+<main class="app-main view-state--home" id="app-main">
+<div id="view-home" class="view view--home view--active"></div>
+<div id="view-wiki" class="view view--wiki"></div>
+</main>
+<footer class="footer"><div class="footer__inner"><span>© 云星 Cloud Star Realms</span><a href="#">反馈</a></div></footer>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

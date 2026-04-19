@@ -1,0 +1,29 @@
+﻿# 依赖
+node_modules/
+
+# 包管理器调试日志
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 本地环境变量（示例文件可提交）
+.env
+.env.*
+!.env.example
+
+# 日志与临时文件
+*.log
+*.tmp
+*.temp
+
+# 系统杂项
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE（可选保留团队共享配置）
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json

@@ -1,0 +1,9 @@
+﻿{
+  "nav": [
+    { "id": "wiki-top", "label": "概览" },
+    { "id": "wiki-world", "label": "世界观" },
+    { "id": "wiki-rules", "label": "规则" },
+    { "id": "wiki-economy", "label": "经济" },
+    { "id": "wiki-faq", "label": "FAQ" }
+  ]
+}

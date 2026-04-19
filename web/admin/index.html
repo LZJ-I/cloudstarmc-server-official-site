@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="robots" content="noindex,nofollow"/>
+<meta name="color-scheme" content="dark"/>
+<title>管理后台 · 云星</title>
+<link rel="icon" href="/img/favicon.png" type="image/png" sizes="32x32"/>
+<link rel="stylesheet" href="/admin/pico.min.css"/>
+<link rel="stylesheet" href="/admin/admin.css"/>
+</head>
+<body>
+<main class="container admin-layout">
+<section id="loginPanel" class="admin-login-stage" aria-labelledby="login-heading">
+<article class="admin-card">
+<header>
+<p class="admin-brand" aria-hidden="true">云星 Cloud Star</p>
+<h1 id="login-heading">管理后台</h1>
+<p>请使用管理员账号登录。勿在链接、聊天或截图中发送密码。</p>
+</header>
+<form id="loginForm">
+<label for="login-user">账号</label>
+<input type="text" id="login-user" name="user" autocomplete="username" required autocapitalize="none" spellcheck="false"/>
+<label for="login-pass">密码</label>
+<input type="password" id="login-pass" name="password" autocomplete="current-password" required/>
+<p id="loginErr" class="admin-alert" role="alert" aria-live="assertive" hidden></p>
+<button type="submit">登录</button>
+</form>
+<footer>
+<p class="admin-footnote"><a href="/">返回站点</a></p>
+</footer>
+</article>
+</section>
+<section id="appPanel" class="admin-app-stage" hidden>
+<header class="admin-apphead">
+<div>
+<h1 class="admin-app-title">管理后台</h1>
+<p>已登录 · 选择模块</p>
+</div>
+<button type="button" class="secondary" id="logoutBtn">退出登录</button>
+</header>
+<nav class="admin-nav" aria-label="后台模块">
+<ul>
+<li><button type="button" class="outline admin-nav__btn is-active" id="navWiki" data-panel="wiki">百科 Wiki</button></li>
+<li><button type="button" class="outline admin-nav__btn" id="navOther" data-panel="other">其他模块</button></li>
+</ul>
+</nav>
+<article id="panelWiki" class="admin-panel">
+<p class="admin-meta">图片将放在 <code>web/wiki/uploads/</code> 路径下，插入图片需要先在图库中上传。</p>
+<div class="admin-modebar" role="tablist" aria-label="编辑模式">
+<div class="admin-modebar__tabs">
+<button type="button" class="outline admin-seg is-active" role="tab" id="tabSource" aria-selected="true" aria-controls="mdSource">源码</button>
+<button type="button" class="outline admin-seg" role="tab" id="tabPreview" aria-selected="false" aria-controls="mdPreview">审阅</button>
+</div>
+<button type="button" class="outline contrast" id="btnWikiUploads">图库</button>
+</div>
+<div class="admin-editor-wrap">
+<div id="wikiEditorHost" class="admin-wiki-source">
+<textarea id="mdSource" class="admin-textarea" spellcheck="false" aria-label="Markdown 源码"></textarea>
+</div>
+<div id="mdPreview" class="admin-preview wiki-md" role="region" aria-label="Markdown 审阅" tabindex="0" hidden></div>
+</div>
+<p id="saveMsg" class="admin-msg" role="status" aria-live="polite"></p>
+<button type="button" id="saveBtn">保存</button>
+</article>
+<article id="panelOther" class="admin-panel" hidden>
+<p class="admin-muted">其他后台能力占位，后续接入。</p>
+</article>
+<dialog id="wikiUploadsDlg" class="admin-uploads-dlg">
+<article class="admin-uploads-dlg__inner">
+<header class="admin-uploads-dlg__head">
+<h2 class="admin-uploads-dlg__title">图库</h2>
+<button type="button" class="secondary admin-uploads-close" id="wikiUploadsDlgClose" aria-label="关闭">×</button>
+</header>
+<p class="admin-muted admin-uploads-dlg__hint">点击缩略图复制插入语法 <code>![配图](/wiki/uploads/…)</code>；上传为随机名，可用「改名」改成易记文件名（仅字母数字、点、下划线、短横线，扩展名须为 png/jpg/gif/webp/svg/avif）。</p>
+<div class="admin-uploads-toolbar">
+<input type="file" id="wikiUploadFileInput" class="admin-uploads-file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/avif,.png,.jpg,.jpeg,.gif,.webp,.svg,.avif" multiple/>
+<label for="wikiUploadFileInput" class="outline contrast admin-uploads-filelabel">上传</label>
+</div>
+<p id="wikiUploadsDlgStatus" class="admin-uploads-dlg__status" role="status" aria-live="polite"></p>
+<div id="wikiUploadsGrid" class="admin-uploads-grid"></div>
+<textarea id="wikiCopyScratch" aria-hidden="true" tabindex="-1" readonly spellcheck="false" autocomplete="off" style="position:absolute;width:1px;height:1px;margin:0;padding:0;border:0;opacity:0;left:0;top:0;resize:none;overflow:hidden;pointer-events:none"></textarea>
+</article>
+</dialog>
+<footer class="admin-footnote"><a href="/">返回站点</a></footer>
+</section>
+</main>
+<script type="module" src="/admin/admin-index.js?v=upload-bin"></script>
+</body>
+</html>
