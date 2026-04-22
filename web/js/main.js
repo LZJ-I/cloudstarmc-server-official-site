@@ -1,5 +1,6 @@
 ﻿import { mountHomePartial, initRoutes } from "./routes.js";
 import { bootTeam } from "./team.js";
+import { initAtmosphere } from "./atmosphere.js";
 
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const QQ_GROUP_URL = "https://qm.qq.com/q/O79LWnwEAU";
@@ -19,45 +20,207 @@ function parseFeaturesJson(text) {
   }
 }
 
+function parseJoinGuideJson(text) {
+  try {
+    return JSON.parse(String(text || "").replace(/^\uFEFF/, ""));
+  } catch (e) {
+    return null;
+  }
+}
+
+function applyServerVersionPill(data) {
+  var si = data && data.serverInfo;
+  var rows = si && Array.isArray(si.rows) ? si.rows : [];
+  var ver = "";
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    if (row && String(row.dt) === "游戏版本") {
+      ver = row.dd != null ? String(row.dd).trim() : "";
+      break;
+    }
+  }
+  if (!ver) return;
+  document.querySelectorAll(".js-server-version").forEach(function (el) {
+    el.textContent = ver;
+  });
+}
+
+function joinGuideBodyWithIp(p, body, serverIp) {
+  var t = body != null ? String(body) : "";
+  var ip = serverIp != null ? String(serverIp) : "";
+  p.textContent = "";
+  if (!ip || t.indexOf(ip) === -1) {
+    p.textContent = t;
+    return;
+  }
+  var parts = t.split(ip);
+  for (var i = 0; i < parts.length; i += 1) {
+    if (parts[i]) p.appendChild(document.createTextNode(parts[i]));
+    if (i < parts.length - 1) {
+      var code = document.createElement("code");
+      code.textContent = ip;
+      p.appendChild(code);
+    }
+  }
+}
+
+function mountJoinGuideKvCard(title, block) {
+  var card = document.createElement("div");
+  card.className = "join-guide__card";
+  var h3 = document.createElement("h3");
+  h3.className = "join-guide__card-title";
+  h3.textContent = title || "";
+  var dl = document.createElement("dl");
+  dl.className = "join-guide__kv";
+  var rows = block && Array.isArray(block.rows) ? block.rows : [];
+  rows.forEach(function (row) {
+    var wrap = document.createElement("div");
+    var dt = document.createElement("dt");
+    dt.textContent = row && row.dt != null ? String(row.dt) : "";
+    var dd = document.createElement("dd");
+    var val = row && row.dd != null ? String(row.dd) : "";
+    if (row && row.code) {
+      var code = document.createElement("code");
+      code.textContent = val;
+      dd.appendChild(code);
+    } else {
+      dd.textContent = val;
+    }
+    wrap.appendChild(dt);
+    wrap.appendChild(dd);
+    dl.appendChild(wrap);
+  });
+  card.appendChild(h3);
+  card.appendChild(dl);
+  return card;
+}
+
+var DEFAULT_JOIN_GUIDE = {
+  section: { title: "加入指南", subtitle: "" },
+  serverInfo: { title: "服务器信息", rows: [] },
+  requirements: { title: "系统要求", rows: [] },
+  stepsCard: {
+    title: "加入步骤",
+    steps: [],
+    cta: { qqLabel: "官方 QQ 群", qqUrl: QQ_GROUP_URL, copyLabel: "复制服务器地址", serverIp: "" },
+  },
+};
+
+async function mountJoinGuideFromApi() {
+  var head = document.getElementById("joinGuideHead");
+  var grid = document.getElementById("joinGuideGrid");
+  if (!head || !grid) return;
+  var data = null;
+  try {
+    var r = await fetch(absUrl("/api/join-guide"));
+    if (r.ok) data = parseJoinGuideJson(await r.text());
+  } catch (e) {}
+  if (!data || typeof data !== "object") {
+    try {
+      var r2 = await fetch(absUrl("join-guide/join-guide.json"));
+      if (r2.ok) data = parseJoinGuideJson(await r2.text());
+    } catch (e2) {}
+  }
+  if (!data || typeof data !== "object") {
+    data = DEFAULT_JOIN_GUIDE;
+  }
+  var sec = data.section || {};
+  head.innerHTML = "";
+  var h2 = document.createElement("h2");
+  h2.textContent = sec.title != null ? String(sec.title) : "";
+  var pp = document.createElement("p");
+  pp.textContent = sec.subtitle != null ? String(sec.subtitle) : "";
+  head.appendChild(h2);
+  head.appendChild(pp);
+  grid.innerHTML = "";
+  var si = data.serverInfo || {};
+  var rq = data.requirements || {};
+  grid.appendChild(mountJoinGuideKvCard(si.title, si));
+  grid.appendChild(mountJoinGuideKvCard(rq.title, rq));
+  var sc = data.stepsCard || {};
+  var stepsWrap = document.createElement("div");
+  stepsWrap.className = "join-guide__card join-guide__card--steps";
+  var h3s = document.createElement("h3");
+  h3s.className = "join-guide__card-title";
+  h3s.textContent = sc.title != null ? String(sc.title) : "";
+  var ol = document.createElement("ol");
+  ol.className = "join-guide__steps";
+  var cta = sc.cta && typeof sc.cta === "object" ? sc.cta : {};
+  var serverIp = cta.serverIp != null ? String(cta.serverIp) : "";
+  var stepList = Array.isArray(sc.steps) ? sc.steps : [];
+  stepList.forEach(function (st, idx) {
+    var li = document.createElement("li");
+    var num = document.createElement("span");
+    num.className = "join-guide__step-num";
+    num.setAttribute("aria-hidden", "true");
+    num.textContent = String(idx + 1);
+    var bodyWrap = document.createElement("div");
+    bodyWrap.className = "join-guide__step-body";
+    var strong = document.createElement("strong");
+    strong.className = "join-guide__step-title";
+    strong.textContent = st && st.title != null ? String(st.title) : "";
+    var para = document.createElement("p");
+    joinGuideBodyWithIp(para, st && st.body != null ? st.body : "", serverIp);
+    bodyWrap.appendChild(strong);
+    bodyWrap.appendChild(para);
+    li.appendChild(num);
+    li.appendChild(bodyWrap);
+    ol.appendChild(li);
+  });
+  var ctaRow = document.createElement("div");
+  ctaRow.className = "join-guide__cta-row";
+  var qqA = document.createElement("a");
+  qqA.className = "btn btn--primary";
+  qqA.id = "join";
+  qqA.href = cta.qqUrl != null ? String(cta.qqUrl) : QQ_GROUP_URL;
+  qqA.target = "_blank";
+  qqA.rel = "noopener noreferrer";
+  qqA.textContent = cta.qqLabel != null ? String(cta.qqLabel) : "官方 QQ 群";
+  var copyBtn = document.createElement("button");
+  copyBtn.type = "button";
+  copyBtn.className = "btn btn--ghost";
+  copyBtn.id = "copyIpGuide";
+  copyBtn.setAttribute("data-ip", serverIp);
+  copyBtn.textContent = cta.copyLabel != null ? String(cta.copyLabel) : "复制服务器地址";
+  var hint = document.createElement("p");
+  hint.className = "join-guide__hint";
+  hint.id = "copyHintGuide";
+  hint.hidden = true;
+  hint.textContent = "已复制到剪贴板";
+  ctaRow.appendChild(qqA);
+  ctaRow.appendChild(copyBtn);
+  stepsWrap.appendChild(h3s);
+  stepsWrap.appendChild(ol);
+  stepsWrap.appendChild(ctaRow);
+  stepsWrap.appendChild(hint);
+  grid.appendChild(stepsWrap);
+  document.querySelectorAll("#join-guide .reveal").forEach(function (el) {
+    el.classList.add("is-visible");
+  });
+  applyServerVersionPill(data);
+}
+
 var DEFAULT_FEATURES = {
   section: {
-    title: "云星能带给你什么",
-    subtitle:
-      "周更内容、探索节奏与社区运营，为 Java 版生存玩家准备；以下为云星当前侧重的体验模块。",
+    title: "关于云星",
+    subtitle: "休闲社交向的 Java 生存：设计克制、节奏耐玩，把精力放在世界与彼此。",
   },
   tabs: [
     {
-      label: "自定义内容",
-      title: "每周新内容",
-      body: "任务线、副本与原创玩法持续迭代；团队用版本节奏保证你总有新目标可追。",
-      ticks: ["原创机制与平衡补丁", "与生存进度自然衔接", "公开路线图与反馈渠道"],
-      card: { kicker: "运营", big: "周更", sub: "活动、商店轮换与限时挑战同步上线。" },
+      title: "轻量加法，主线仍是生存",
+      body: "种植、附魔、钓鱼等有原创机制，与原版进度自然衔接，不做堆叠养成。",
     },
     {
-      label: "世界与探索",
-      title: "值得探索的世界",
-      body: "地形、生态与结构点经过手工调校；远足、建家、刷物资都能找到舒适节奏。",
-      ticks: ["可读的地图层次与地标", "多人协作友好的资源分布", "轻量引导，重探索奖励"],
-      card: {
-        kicker: "世界",
-        big: "可读性",
-        sub: "一眼看懂「去哪冒险」，减少无意义跑图。",
-        variant: "alt",
-      },
+      title: "手工调校的世界节奏",
+      body: "地形、生态与结构点便于远足、建家、搜资源，少无意义跑图。",
     },
     {
-      label: "社区活动",
-      title: "社区优先",
-      body: "我们相信沟通是社区的灵魂：官方 QQ 群与游戏内频道联动，公告、投票与共创透明可见。",
-      ticks: ["新手友好与反作弊底线", "定期 AMA 与策划面对面", "玩家创意进入正式内容池"],
-      card: { kicker: "社群", big: "同频", sub: "活动日历 + 机器人提醒，重要节点不错过。" },
+      title: "公告与群聊一条线",
+      body: "官方 QQ 群与服内频道联动，投票、共创与重要节点透明。",
     },
     {
-      label: "性能与稳定",
-      title: "为高峰而生",
-      body: "硬件与插件栈为「多人在线」优化：延迟、TPS 与备份策略是日常运维的默认项，而不是口号。",
-      ticks: ["自动化巡检与告警", "多地备份与快速回滚", "可观测指标对管理团队开放摘要"],
-      card: { kicker: "运维", big: "稳", sub: "峰值在线同样保持可玩性。", variant: "alt" },
+      title: "峰值在线也保持可玩",
+      body: "硬件与插件栈为多人在线优化；延迟、TPS、备份是日常默认项。",
     },
   ],
 };
@@ -81,91 +244,46 @@ async function mountFeaturesFromApi() {
     data = DEFAULT_FEATURES;
   }
   var sec = data.section || {};
+  head.textContent = "";
   var h2 = document.createElement("h2");
   h2.textContent = sec.title || "";
   var pp = document.createElement("p");
   pp.textContent = sec.subtitle || "";
   head.appendChild(h2);
   head.appendChild(pp);
-  var list = document.createElement("div");
-  list.className = "tabs__list";
-  list.setAttribute("role", "tablist");
-  var panels = document.createElement("div");
-  panels.className = "tabs__panels";
-  var indWrap = document.createElement("div");
-  indWrap.className = "tabs__indicator";
-  indWrap.setAttribute("aria-hidden", "true");
-  var indSpan = document.createElement("span");
-  indWrap.appendChild(indSpan);
-  data.tabs.forEach(function (tab, idx) {
-    var btn = document.createElement("button");
-    btn.className = "tabs__btn" + (idx === 0 ? " is-active" : "");
-    btn.type = "button";
-    btn.setAttribute("role", "tab");
-    btn.setAttribute("aria-selected", idx === 0 ? "true" : "false");
-    btn.setAttribute("data-tab", String(idx));
-    btn.textContent = tab.label || "";
-    list.appendChild(btn);
-    var panel = document.createElement("div");
-    panel.className = "tabs__panel" + (idx === 0 ? " is-active" : "");
-    panel.setAttribute("role", "tabpanel");
-    panel.setAttribute("data-panel", String(idx));
-    if (idx !== 0) panel.setAttribute("hidden", "");
-    var grid = document.createElement("div");
-    grid.className = "feature-grid";
-    var left = document.createElement("div");
+  tabsRoot.textContent = "";
+  tabsRoot.className = "features-cards reveal";
+  var grid = document.createElement("div");
+  grid.className = "features-cards__grid";
+  data.tabs.forEach(function (tab, i) {
+    var art = document.createElement("article");
+    art.className = "features-cards__card" + (i % 2 ? " features-cards__card--alt" : "");
     var h3 = document.createElement("h3");
+    h3.className = "features-cards__title";
     h3.textContent = tab.title || "";
-    left.appendChild(h3);
-    var bp = document.createElement("p");
-    bp.textContent = tab.body || "";
-    left.appendChild(bp);
-    if (Array.isArray(tab.ticks) && tab.ticks.length) {
-      var ul = document.createElement("ul");
-      ul.className = "ticks";
-      tab.ticks.forEach(function (t) {
-        var li = document.createElement("li");
-        li.textContent = t;
-        ul.appendChild(li);
-      });
-      left.appendChild(ul);
+    art.appendChild(h3);
+    if (tab.body) {
+      var bp = document.createElement("p");
+      bp.className = "features-cards__body";
+      bp.textContent = tab.body;
+      art.appendChild(bp);
     }
-    var card = tab.card || {};
-    var cardEl = document.createElement("div");
-    cardEl.className = "feature-card" + (card.variant === "alt" ? " feature-card--alt" : "");
-    var glow = document.createElement("div");
-    glow.className = "feature-card__glow";
-    var pk = document.createElement("p");
-    pk.className = "feature-card__kicker";
-    pk.textContent = card.kicker || "";
-    var pb = document.createElement("p");
-    pb.className = "feature-card__big";
-    pb.textContent = card.big || "";
-    var ps = document.createElement("p");
-    ps.className = "feature-card__sub";
-    ps.textContent = card.sub || "";
-    cardEl.appendChild(glow);
-    cardEl.appendChild(pk);
-    cardEl.appendChild(pb);
-    cardEl.appendChild(ps);
-    grid.appendChild(left);
-    grid.appendChild(cardEl);
-    panel.appendChild(grid);
-    panels.appendChild(panel);
+    grid.appendChild(art);
   });
-  list.appendChild(indWrap);
-  tabsRoot.appendChild(list);
-  tabsRoot.appendChild(panels);
+  tabsRoot.appendChild(grid);
   document.querySelectorAll("#features .reveal").forEach(function (el) {
     el.classList.add("is-visible");
   });
 }
 
 function seedStars() {
-  var root = document.getElementById("stars");
+  var root = document.getElementById("siteStars");
   if (!root || prefersReducedMotion) return;
+  var w = window.innerWidth || 800;
+  var h = window.innerHeight || 600;
+  var n = Math.min(240, Math.max(64, Math.floor((w * h) / 14000)));
   var frag = document.createDocumentFragment();
-  for (var i = 0; i < 38; i += 1) {
+  for (var i = 0; i < n; i += 1) {
     var s = document.createElement("span");
     s.className = "star";
     s.style.left = Math.random() * 100 + "%";
@@ -175,6 +293,82 @@ function seedStars() {
     frag.appendChild(s);
   }
   root.appendChild(frag);
+}
+
+function initSiteSkyFalling() {
+  var c = document.getElementById("siteSkyFalling");
+  if (!c || prefersReducedMotion) return;
+  var ctx = c.getContext("2d", { alpha: true });
+  if (!ctx) return;
+  var w = 0;
+  var h = 0;
+  var dpr = 1;
+  var list = [];
+  var count = 42;
+  function roll(p) {
+    var sp = 0.45 + Math.random() * 1.6;
+    var ang = ((58 + Math.random() * 64) * Math.PI) / 180;
+    p.vx = Math.cos(ang) * sp * 0.65 + (Math.random() - 0.5) * 0.5;
+    p.vy = Math.sin(ang) * sp;
+    p.r = 0.5 + Math.random() * 1.15;
+    p.a = 0.15 + Math.random() * 0.42;
+    p.tail = 3 + Math.random() * 11;
+  }
+  function spawn(p, top) {
+    p.x = Math.random() * w;
+    p.y = top ? -Math.random() * 80 : Math.random() * h;
+    roll(p);
+  }
+  function resize() {
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    w = window.innerWidth || 300;
+    h = window.innerHeight || 300;
+    c.width = Math.floor(w * dpr);
+    c.height = Math.floor(h * dpr);
+    c.style.width = w + "px";
+    c.style.height = h + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    list.length = 0;
+    for (var i = 0; i < count; i += 1) {
+      var p = {};
+      spawn(p, false);
+      list.push(p);
+    }
+  }
+  function step() {
+    if (!c.isConnected) return;
+    ctx.clearRect(0, 0, w, h);
+    ctx.globalCompositeOperation = "lighter";
+    ctx.lineCap = "round";
+    for (var i = 0; i < list.length; i += 1) {
+      var p = list[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      if (Math.random() < 0.04) p.vx += (Math.random() - 0.5) * 0.12;
+      if (Math.random() < 0.04) p.vy += (Math.random() - 0.5) * 0.08;
+      if (p.x < -12) p.x = w + 12;
+      if (p.x > w + 12) p.x = -12;
+      if (p.y > h + 8) spawn(p, true);
+      var inv = Math.abs(p.vx) + Math.abs(p.vy) + 0.001;
+      var x1 = p.x - (p.vx / inv) * p.tail;
+      var y1 = p.y - (p.vy / inv) * p.tail;
+      var g = ctx.createLinearGradient(p.x, p.y, x1, y1);
+      g.addColorStop(0, "rgba(255,255,255," + p.a + ")");
+      g.addColorStop(0.55, "rgba(199,210,254," + p.a * 0.45 + ")");
+      g.addColorStop(1, "rgba(199,210,254,0)");
+      ctx.strokeStyle = g;
+      ctx.lineWidth = p.r;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(x1, y1);
+      ctx.stroke();
+    }
+    ctx.globalCompositeOperation = "source-over";
+    window.requestAnimationFrame(step);
+  }
+  resize();
+  window.addEventListener("resize", resize, { passive: true });
+  window.requestAnimationFrame(step);
 }
 function observeReveals(nodes) {
   if (prefersReducedMotion) {
@@ -236,79 +430,6 @@ function initNavMobile() {
     if (e.key === "Escape") setOpen(false);
   });
 }
-function initTabs(root) {
-  root = root || document.querySelector("[data-tabs]");
-  if (!root) return;
-  var buttons = Array.prototype.slice.call(root.querySelectorAll(".tabs__btn"));
-  var panels = Array.prototype.slice.call(root.querySelectorAll(".tabs__panel"));
-  if (!buttons.length) return;
-  var indicator = root.querySelector(".tabs__indicator span");
-  function moveIndicator(btn) {
-    if (!indicator) return;
-    var track = indicator.parentElement;
-    if (!track) return;
-    var br = btn.getBoundingClientRect();
-    var tr = track.getBoundingClientRect();
-    var padL = parseFloat(window.getComputedStyle(track).paddingLeft) || 0;
-    var borderL = parseFloat(window.getComputedStyle(track).borderLeftWidth) || 0;
-    var x = br.left - tr.left - borderL - padL + track.scrollLeft;
-    indicator.style.width = br.width + "px";
-    indicator.style.transform = "none";
-    indicator.style.left = x + "px";
-  }
-  function activate(idx) {
-    buttons.forEach(function (b, i) {
-      var on = i === idx;
-      b.classList.toggle("is-active", on);
-      b.setAttribute("aria-selected", on ? "true" : "false");
-    });
-    panels.forEach(function (p, i) {
-      var on = i === idx;
-      p.classList.toggle("is-active", on);
-      if (on) p.removeAttribute("hidden");
-      else p.setAttribute("hidden", "");
-    });
-    moveIndicator(buttons[idx]);
-  }
-  buttons.forEach(function (b) {
-    b.addEventListener("click", function () {
-      var t = Number(b.getAttribute("data-tab"));
-      activate(isNaN(t) ? 0 : t);
-    });
-  });
-  var list = root.querySelector(".tabs__list");
-  if (list) {
-    list.addEventListener("scroll", function () {
-      var i = -1;
-      for (var j = 0; j < buttons.length; j += 1) {
-        if (buttons[j].classList.contains("is-active")) {
-          i = j;
-          break;
-        }
-      }
-      if (i >= 0) moveIndicator(buttons[i]);
-    });
-  }
-  window.addEventListener("resize", function () {
-    var i = 0;
-    for (; i < buttons.length; i += 1) {
-      if (buttons[i].classList.contains("is-active")) break;
-    }
-    if (i < buttons.length) moveIndicator(buttons[i]);
-  });
-  activate(0);
-  window.requestAnimationFrame(function () {
-    window.requestAnimationFrame(function () {
-      var j = 0;
-      for (; j < buttons.length; j += 1) {
-        if (buttons[j].classList.contains("is-active")) {
-          moveIndicator(buttons[j]);
-          break;
-        }
-      }
-    });
-  });
-}
 function copyWithExecCommand(text) {
   var ta = document.createElement("textarea");
   ta.value = text;
@@ -325,42 +446,65 @@ function copyWithExecCommand(text) {
   return ok;
 }
 function initCopyIp() {
-  var btn = document.getElementById("copyIp");
-  var hint = document.getElementById("copyHint");
-  if (!btn) return;
-  var ip = btn.getAttribute("data-ip") || "";
-  var hintOkText = hint ? hint.textContent.trim() : "";
-  btn.addEventListener("click", function () {
-    function showOk() {
-      if (hint) {
-        hint.textContent = hintOkText || "\u5df2\u590d\u5236\u5230\u526a\u8d34\u677f";
-        hint.hidden = false;
-        setTimeout(function () {
-          hint.hidden = true;
-        }, 1600);
+  var hintGuide = document.getElementById("copyHintGuide");
+  var hintOkText = "\u5df2\u590d\u5236\u5230\u526a\u8d34\u677f";
+  function attach(btn, hint) {
+    if (!btn) return;
+    var ip = btn.getAttribute("data-ip") || "";
+    btn.addEventListener("click", function () {
+      function showOk() {
+        if (hint) {
+          hint.textContent = hintOkText;
+          hint.hidden = false;
+          setTimeout(function () {
+            hint.hidden = true;
+          }, 1600);
+        }
       }
-    }
-    function showFail() {
-      if (hint) {
-        hint.textContent = "\u8bf7\u624b\u52a8\u590d\u5236\uff1a" + ip;
-        hint.hidden = false;
+      function showFail() {
+        if (hint) {
+          hint.textContent = "\u8bf7\u624b\u52a8\u590d\u5236\uff1a" + ip;
+          hint.hidden = false;
+        }
       }
-    }
-    if (copyWithExecCommand(ip)) {
-      showOk();
-      return;
-    }
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(ip).then(showOk, showFail);
-    } else {
-      showFail();
+      if (copyWithExecCommand(ip)) {
+        showOk();
+        return;
+      }
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(ip).then(showOk, showFail);
+      } else {
+        showFail();
+      }
+    });
+  }
+  attach(document.getElementById("copyIpGuide"), hintGuide);
+}
+function initFooterPiston() {
+  var el = document.getElementById("footerPiston");
+  if (!el) return;
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function goTop() {
+    window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
+  }
+  el.addEventListener("click", function (e) {
+    e.preventDefault();
+    goTop();
+  });
+  el.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      goTop();
     }
   });
 }
 function initJoinLinks() {
   document.querySelectorAll("#join").forEach(function (el) {
     if (el && el.tagName === "A") {
-      el.setAttribute("href", QQ_GROUP_URL);
+      var h = el.getAttribute("href") || "";
+      if (!/^https?:\/\//i.test(String(h).trim())) {
+        el.setAttribute("href", QQ_GROUP_URL);
+      }
       el.setAttribute("target", "_blank");
       el.setAttribute("rel", "noopener noreferrer");
     }
@@ -419,6 +563,7 @@ async function boot() {
   try {
     await Promise.all([mountHomePartial(), minShow, fontsReady]);
     await mountFeaturesFromApi();
+    await mountJoinGuideFromApi();
   } catch (err) {
     console.error(err);
   }
@@ -433,12 +578,14 @@ async function boot() {
     }, delay);
   });
   initHeroPhoto();
+  initAtmosphere(prefersReducedMotion);
   seedStars();
+  initSiteSkyFalling();
   initNav();
   initNavMobile();
-  initTabs(document.getElementById("featuresTabs"));
   initCopyIp();
   initJoinLinks();
+  initFooterPiston();
   (function observeHomeRevealsOnly() {
     var wikiRoot = document.getElementById("view-wiki");
     var list = [];

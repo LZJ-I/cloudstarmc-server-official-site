@@ -138,7 +138,7 @@ const socialFooter = `
 `;
 const orTeam = `
 .or-team-section{padding-top:72px;padding-bottom:72px}
-.or-team{max-width:var(--max);margin:0 auto;padding:0 4px}
+.or-team{max-width:min(100%,calc(var(--max)*3/4));margin:0 auto;padding:0 4px}
 .or-team__parchment{border-radius:calc(var(--radius) + 6px);border:1px solid rgba(255,255,255,.1);background:rgba(10,11,16,.78);box-shadow:var(--shadow);overflow:hidden;position:relative}
 .or-team__parchment::before{content:"";position:absolute;inset:0;background:linear-gradient(125deg,rgba(255,255,255,.05),transparent 45%,rgba(249,115,22,.04) 100%);pointer-events:none;z-index:1}
 .or-team__grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(240px,.9fr);gap:0;min-height:min(520px,70vh);position:relative;z-index:2}
@@ -192,6 +192,7 @@ const orTeam = `
 .or-team__portrait-pane--out{opacity:0;transform:scale(1.04) translateY(10px);z-index:1;filter:blur(5px)}
 .or-team__portrait-pane--in{opacity:1;transform:scale(1) translateY(0);z-index:3;filter:blur(0)}
 .or-team__grid[data-or-team-dir="prev"] .or-team__portrait-pane--wait{transform:scale(1.05) translateY(-10px)}
+.or-team__left .or-team__progress{margin-top:clamp(16px,2.2vw,22px);width:100%}
 .or-team__progress{height:4px;background:rgba(255,255,255,.08)}
 .or-team__progress-bar{height:100%;width:0%;background:linear-gradient(90deg,#fb923c,#ea580c);transition:width .08s linear}
 @media (max-width:900px){.or-team__grid{grid-template-columns:1fr;min-height:0}.or-team__left{border-right:0;border-bottom:1px solid rgba(255,255,255,.08)}.or-team__right{order:-1;min-height:260px}.or-team__controls{column-gap:8px;grid-template-columns:40px minmax(0,1fr) 40px}.or-team__strip{padding:0 8px;scroll-padding-inline:8px;--strip-fade:32px}.or-team__strip-track{padding:12px 32px 12px 4px;gap:12px}}

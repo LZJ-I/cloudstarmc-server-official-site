@@ -15,7 +15,13 @@ function staffAssetUrl(memberId, file) {
   }
   if (!f) return STAFF_TPL_HEAD;
   if (!memberId) return STAFF_TPL_HEAD;
-  return "/staff/" + encodeURIComponent(String(memberId)) + "/" + encodeURIComponent(f);
+  var u = "/staff/" + encodeURIComponent(String(memberId)) + "/" + encodeURIComponent(f);
+  var bust =
+    typeof window !== "undefined" && window.__STAFF_PREVIEW_BUST != null && window.__STAFF_PREVIEW_BUST !== ""
+      ? String(window.__STAFF_PREVIEW_BUST)
+      : "";
+  if (bust) u += (u.indexOf("?") >= 0 ? "&" : "?") + "v=" + encodeURIComponent(bust);
+  return u;
 }
 function staffHeadUrl(id, headFile) {
   return staffAssetUrl(id, headFile || "head.png");
@@ -24,7 +30,7 @@ function staffPortraitUrl(id, portraitFile) {
   return staffAssetUrl(id, portraitFile || "portrait.png");
 }
 
-function initOriginTeam(orStaff) {
+export function initOriginTeam(orStaff) {
   if (!orStaff || !orStaff.length) return;
   var parchment = document.getElementById("orTeamParchment");
   var subtitle = document.getElementById("orTeamSubtitle");
@@ -45,6 +51,7 @@ function initOriginTeam(orStaff) {
     strip.appendChild(track);
   }
   var teamGrid = parchment.querySelector(".or-team__grid");
+  var controls = parchment.querySelector(".or-team__controls");
   var slides = [slide0, slide1];
   var photos = [photo0, photo1];
   var idx = 0;
@@ -59,6 +66,19 @@ function initOriginTeam(orStaff) {
   var stripSmoothScroll = !prefersReducedMotion;
   var stripWrap = strip ? strip.parentElement : null;
   var stripRoRaf = null;
+  function updateControlsMode() {
+    if (!controls || !strip) return;
+    var st = getComputedStyle(controls);
+    var g = parseFloat(st.gap) || parseFloat(st.columnGap) || 8;
+    var wA = (prevBtn ? prevBtn.offsetWidth : 0) + (nextBtn ? nextBtn.offsetWidth : 0);
+    var wNeed = wA + strip.scrollWidth + 2 * g;
+    var avail = controls.clientWidth;
+    var next = wNeed <= avail + 3 ? "compact" : "wide";
+    var cur = controls.getAttribute("data-or-team-controls");
+    if (cur === next) return;
+    controls.setAttribute("data-or-team-controls", next);
+    if (next === "compact") strip.scrollLeft = 0;
+  }
   function faceScrollExtents(el) {
     var x = 0;
     for (var n = el; n && n !== strip; n = n.offsetParent) {
@@ -396,6 +416,7 @@ function initOriginTeam(orStaff) {
       im.onerror = null;
       im.src = STAFF_TPL_HEAD;
       requestAnimationFrame(function () {
+        updateControlsMode();
         syncStrip(true);
       });
     };
@@ -411,6 +432,7 @@ function initOriginTeam(orStaff) {
         refreshMemberBio(i);
       }
       requestAnimationFrame(function () {
+        updateControlsMode();
         syncStrip(true);
       });
     });
@@ -421,6 +443,7 @@ function initOriginTeam(orStaff) {
     track.appendChild(b);
     faces.push(b);
   });
+  updateControlsMode();
   if (prevBtn) prevBtn.addEventListener("click", function () { go(idx - 1, {}); });
   if (nextBtn) nextBtn.addEventListener("click", function () { go(idx + 1, {}); });
   strip.addEventListener("scroll", updateStripFade, { passive: true });
@@ -429,10 +452,12 @@ function initOriginTeam(orStaff) {
       if (stripRoRaf) cancelAnimationFrame(stripRoRaf);
       stripRoRaf = requestAnimationFrame(function () {
         stripRoRaf = null;
+        updateControlsMode();
         syncStrip(true);
       });
     });
-    ro.observe(stripWrap || strip);
+    if (controls) ro.observe(controls);
+    if (stripWrap) ro.observe(stripWrap);
   }
   fillSlideInto(slides[0], 0);
   paintPortraitInto(photos[0], orStaff[0], 0);
@@ -444,12 +469,15 @@ function initOriginTeam(orStaff) {
   setSubtitle();
   updateFaces();
   window.addEventListener("resize", function () {
+    updateControlsMode();
     syncStrip(true);
   });
   requestAnimationFrame(function () {
+    updateControlsMode();
     syncStrip(true);
   });
   window.setTimeout(function () {
+    updateControlsMode();
     syncStrip(true);
   }, 220);
   if (!prefersReducedMotion) {

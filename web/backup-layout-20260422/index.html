@@ -4,8 +4,8 @@
 <meta charset="UTF-8"/>
 <base href="/"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-<meta name="theme-color" content="#0a0c12" media="(prefers-color-scheme: dark)"/>
-<meta name="theme-color" content="#06080e"/>
+<meta name="theme-color" content="#06060c" media="(prefers-color-scheme: dark)"/>
+<meta name="theme-color" content="#030308"/>
 <title>云星 · CloudStar</title>
 <link rel="icon" href="/img/favicon.png" type="image/png" sizes="32x32"/>
 <link rel="apple-touch-icon" href="/img/favicon.png"/>
@@ -14,7 +14,8 @@
 <meta property="og:site_name" content="云星"/>
 <meta property="og:description" content="自定义内容、稳定联机与活跃社区。复制 IP 加入 cloudstarmc.cn"/>
 <link rel="stylesheet" href="https://use.typekit.net/bhe1eni.css"/>
-<link rel="stylesheet" href="css/style.css?v=20260423"/><link rel="stylesheet" href="css/overhaul.css?v=20260423"/>
+<link rel="preload" href="img/hero.png" as="image" fetchpriority="high"/>
+<link rel="stylesheet" href="css/style.css"/><link rel="stylesheet" href="css/overhaul.css"/>
 </head>
 <body class="font-proxima is-booting">
 <div id="page-loader" class="page-loader" aria-busy="true" aria-live="polite" role="status">
@@ -27,25 +28,10 @@
 </div>
 </div>
 <div class="noise" aria-hidden="true"></div>
-<div class="cursor-follow" id="cursorCloud" aria-hidden="true">STAR</div>
-<div class="atmospheric-bg" id="atmosphericBg" aria-hidden="true">
-<div class="atmospheric-bg__particles" id="atmosphericParticles"></div>
-<div class="atmospheric-bg__clouds">
-<div class="atmospheric-bg__cloud atmospheric-bg__cloud--1"></div>
-<div class="atmospheric-bg__cloud atmospheric-bg__cloud--2"></div>
-<div class="atmospheric-bg__cloud atmospheric-bg__cloud--3"></div>
-<div class="atmospheric-bg__cloud atmospheric-bg__cloud--4"></div>
-</div>
-</div>
-<div class="site-sky" id="siteSky" aria-hidden="true">
-<div class="site-sky__stars" id="siteStars"></div>
-<canvas class="site-sky__falling" id="siteSkyFalling" width="300" height="300"></canvas>
-</div>
 <header class="nav" id="nav">
 <div class="nav__inner">
 <a href="/home" class="nav__brand" data-route="home" aria-label="云星 Cloud Star 主页">
 <img class="nav__brand-img" src="img/brand-logo.png" width="256" height="128" alt="云星 Cloud Star MC" decoding="async"/>
-<span class="nav__brand-word" aria-hidden="true">CLOUD STAR</span>
 </a>
 <div class="nav__drawer" id="navDrawer">
 <nav class="nav__links nav__shell" aria-label="主导航">
@@ -67,11 +53,7 @@
 <div id="view-home" class="view view--home view--active"></div>
 <div id="view-wiki" class="view view--wiki"></div>
 </main>
-<aside id="wikiTocPanel" class="wiki-toc" aria-label="本页目录" hidden>
-<div class="wiki-toc__title">目录</div>
-<nav class="wiki-toc__list" id="wikiTocNav"></nav>
-</aside>
-<footer class="footer"><div class="footer__inner"><div class="piston" id="footerPiston" role="button" tabindex="0" aria-label="回到页面顶部"><div class="head"><div class="top"></div><div class="neck"></div></div><div class="base"></div></div><div class="footer__row"><span>© 云星 Cloud Star Realms</span><div class="footer__links"><a href="#">反馈</a></div></div></div></footer>
+<footer class="footer"><div class="footer__inner"><span>© 云星 Cloud Star Realms</span><a href="#">反馈</a></div></footer>
 <script type="module" src="js/main.js"></script>
 </body>
 </html>

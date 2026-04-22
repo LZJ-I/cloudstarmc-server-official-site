@@ -57,6 +57,10 @@ adminExpress.use(
   "/api/admin",
   createAdminRouter({
     wikiMdPath: WIKI_MD,
+    webDir,
+    featuresJsonPath: path.join(webDir, "features", "features.json"),
+    joinGuideJsonPath: path.join(webDir, "join-guide", "join-guide.json"),
+    staffRootPath: path.join(webDir, "staff"),
     verifyUser,
     verifyPassword,
     sessionMaxMs: SESSION_MAX_MS,
@@ -94,7 +98,7 @@ function cacheControlForExt(ext) {
   if ([".png", ".jpg", ".jpeg", ".webp", ".svg", ".ico", ".woff2"].includes(e)) {
     return "public, max-age=604800";
   }
-  if (e === ".css" || e === ".js" || e === ".mjs") return "public, max-age=3600";
+  if (e === ".css" || e === ".js" || e === ".mjs") return "no-store";
   return "no-cache";
 }
 
@@ -172,6 +176,17 @@ function safeDomId(id) {
 
 async function readFeaturesJson() {
   const p = path.join(webDir, "features", "features.json");
+  try {
+    const raw = (await fsp.readFile(p, "utf8")).replace(/^\uFEFF/, "");
+    JSON.parse(raw);
+    return raw;
+  } catch {
+    return "{}";
+  }
+}
+
+async function readJoinGuideJson() {
+  const p = path.join(webDir, "join-guide", "join-guide.json");
   try {
     const raw = (await fsp.readFile(p, "utf8")).replace(/^\uFEFF/, "");
     JSON.parse(raw);
@@ -285,6 +300,21 @@ const server = http.createServer(async (req, res) => {
     }
     return;
   }
+  if (u.pathname === "/api/join-guide") {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const body = await readJoinGuideJson();
+      if (req.method === "HEAD") {
+        res.writeHead(200).end();
+        return;
+      }
+      res.writeHead(200).end(body);
+    } catch (e) {
+      res.writeHead(500).end(JSON.stringify({ error: String(e && e.message ? e.message : e) }));
+    }
+    return;
+  }
   if (u.pathname === "/api/wiki") {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
@@ -314,9 +344,13 @@ const server = http.createServer(async (req, res) => {
     const underWikiUploads =
       relW === "wiki/uploads" || relW.startsWith("wiki/uploads/");
     const underAdmin = relW === "admin" || relW.startsWith("admin/");
+    const adminEditableSiteImg =
+      relW === "img/favicon.png" ||
+      relW === "img/brand-logo.png" ||
+      relW === "img/hero-float.png";
     res.setHeader(
       "Cache-Control",
-      underWikiUploads
+      underWikiUploads || adminEditableSiteImg
         ? "private, max-age=0, must-revalidate"
         : underAdmin
           ? "no-store"

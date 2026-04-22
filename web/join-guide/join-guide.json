@@ -1,0 +1,92 @@
+{
+  "section": {
+    "title": "加入指南",
+    "subtitle": "按下面信息与步骤连接云星；遇到问题可在官方 QQ 群求助。"
+  },
+  "serverInfo": {
+    "title": "服务器信息",
+    "rows": [
+      {
+        "dt": "服务器地址",
+        "dd": "cloudstarmc.cn",
+        "code": false
+      },
+      {
+        "dt": "游戏版本",
+        "dd": "1.21.8",
+        "code": false
+      },
+      {
+        "dt": "正版验证",
+        "dd": "正版/离线均可",
+        "code": false
+      },
+      {
+        "dt": "支持语言",
+        "dd": "中文",
+        "code": false
+      }
+    ]
+  },
+  "requirements": {
+    "title": "系统要求",
+    "rows": [
+      {
+        "dt": "处理器",
+        "dd": "Intel Core i3 或同等性能",
+        "code": false
+      },
+      {
+        "dt": "内存",
+        "dd": "4GB RAM 及以上",
+        "code": false
+      },
+      {
+        "dt": "存储空间",
+        "dd": "至少 2GB 可用空间",
+        "code": false
+      },
+      {
+        "dt": "网络",
+        "dd": "稳定的互联网连接",
+        "code": false
+      },
+      {
+        "dt": "Java",
+        "dd": "与当前游戏版本匹配的 Java 运行环境",
+        "code": false
+      }
+    ]
+  },
+  "stepsCard": {
+    "title": "加入步骤",
+    "steps": [
+      {
+        "title": "安装 Minecraft",
+        "body": "安装对应版本的 Minecraft Java 版，并准备好可用的 Java 运行环境。"
+      },
+      {
+        "title": "添加服务器",
+        "body": "在「多人游戏」中添加服务器，地址填写 cloudstarmc.cn。"
+      },
+      {
+        "title": "阅读群规与公告",
+        "body": "加入官方 QQ 群，查看白名单、版本与进服须知。"
+      },
+      {
+        "title": "按提示完成验证",
+        "body": "若服务器启用白名单或进服密码，请按群内说明操作。"
+      },
+      {
+        "title": "开始游戏",
+        "body": "使用合规客户端连接，遵守规则，即可开始冒险。"
+      }
+    ],
+    "cta": {
+      "qqLabel": "官方 QQ 群",
+      "qqUrl": "https://qm.qq.com/q/O79LWnwEAU",
+      "copyLabel": "复制服务器地址",
+      "serverIp": "cloudstarmc.cn"
+    }
+  }
+}

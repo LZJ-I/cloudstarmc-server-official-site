@@ -1,9 +1,0 @@
-{
-  "order": 90,
-  "name": "示例·星尘",
-  "title": "运营示例",
-  "bio": "用于演示团队模块滚动与展示的示例成员。\n实际部署时可删除 demo_1～demo_5 目录。",
-  "color": "#EA580C",
-  "headFile": "head.png",
-  "portraitFile": "portrait.png"
-}

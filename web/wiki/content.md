@@ -1,17 +1,17 @@
 ﻿<p class="eyebrow wiki-hero__eyebrow">Cloud Star Wiki</p>
 
 # 云星 · 百科
-
+刘亮到此一游
 世界观、规则与玩法速查。持续更新，欢迎在官方群里提交补充与勘误。
 
 ## 测试示例
 **图片示例**（仓库内 `web/wiki/uploads/example-wiki.svg`；后台「图库」可复制路径；正文写 `![](/wiki/uploads/example-wiki.svg)`）：
 test
-![配图示例](/wiki/uploads/example-wiki.svg)
+![配图](/wiki/uploads/test.svg)
 test
 ![配图示例](/wiki/uploads/test-name.png)
 
-![配图](/wiki/uploads/example-wiki.svg)
+![配图](/wiki/uploads/test.svg)
 
 ## 世界观
 

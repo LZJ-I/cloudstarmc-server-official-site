@@ -43,7 +43,10 @@
 <nav class="admin-nav" aria-label="后台模块">
 <ul>
 <li><button type="button" class="outline admin-nav__btn is-active" id="navWiki" data-panel="wiki">百科 Wiki</button></li>
-<li><button type="button" class="outline admin-nav__btn" id="navOther" data-panel="other">其他模块</button></li>
+<li><button type="button" class="outline admin-nav__btn" id="navFeatures" data-panel="features">特色</button></li>
+<li><button type="button" class="outline admin-nav__btn" id="navJoinGuide" data-panel="joinGuide">加入指南</button></li>
+<li><button type="button" class="outline admin-nav__btn" id="navStaff" data-panel="staff">成员</button></li>
+<li><button type="button" class="outline admin-nav__btn" id="navSite" data-panel="site">站点图</button></li>
 </ul>
 </nav>
 <article id="panelWiki" class="admin-panel">
@@ -64,8 +67,150 @@
 <p id="saveMsg" class="admin-msg" role="status" aria-live="polite"></p>
 <button type="button" id="saveBtn">保存</button>
 </article>
-<article id="panelOther" class="admin-panel" hidden>
-<p class="admin-muted">其他后台能力占位，后续接入。</p>
+<article id="panelFeatures" class="admin-panel" hidden>
+<p class="admin-meta">自服务端读取 <code>web/features/features.json</code>，与官网展示一致；切换本页会重新拉取。</p>
+<div class="admin-split">
+<div id="feFormWrap" class="admin-split__editor admin-form-scroll">
+<fieldset>
+<legend>区块标题</legend>
+<label for="feSecTitle">主标题</label>
+<input type="text" id="feSecTitle" autocomplete="off"/>
+<label for="feSecSubtitle">副标题</label>
+<textarea id="feSecSubtitle" rows="3" spellcheck="false"></textarea>
+</fieldset>
+<div id="feTabsMount"></div>
+<button type="button" class="outline secondary" id="feAddTab">添加条目</button>
+</div>
+<div class="admin-split__preview">
+<iframe id="fePreview" title="特色预览" src="/admin/preview-features.html"></iframe>
+</div>
+</div>
+<p id="feSaveMsg" class="admin-msg" role="status"></p>
+<button type="button" id="feSaveBtn">保存</button>
+<button type="button" class="outline secondary" id="feReloadBtn">从服务端重新加载</button>
+</article>
+<article id="panelJoinGuide" class="admin-panel" hidden>
+<p class="admin-meta">右侧为与首页一致的预览，点击任意区块在左侧编辑；保存写入 <code>web/join-guide/join-guide.json</code>。</p>
+<div class="admin-split">
+<div class="admin-split__editor admin-form-scroll" id="jgEditorCol">
+<p class="admin-muted" id="jgSelectionHint">在右侧预览中点击要编辑的区域。</p>
+<div id="jgFocusMount" class="admin-jg-focus"></div>
+<div class="admin-jg-rail" id="jgAddRail" role="toolbar" aria-label="添加条目">
+<button type="button" class="outline secondary" id="jgAddServerRow">+ 服务器信息行</button>
+<button type="button" class="outline secondary" id="jgAddReqRow">+ 系统要求行</button>
+<button type="button" class="outline secondary" id="jgAddStep">+ 步骤</button>
+</div>
+<p id="jgSaveMsg" class="admin-msg" role="status"></p>
+<button type="button" id="jgSaveBtn">保存</button>
+<button type="button" class="outline secondary" id="jgReloadBtn">从服务端重新加载</button>
+</div>
+<div class="admin-split__preview">
+<iframe id="jgPreview" title="加入指南预览" src="/admin/preview-join-guide.html"></iframe>
+</div>
+</div>
+</article>
+<article id="panelStaff" class="admin-panel" hidden>
+<p class="admin-meta">成员按 <code>order</code> 排序列出；头像固定为目录下 <code>head.png</code> 与 <code>portrait.png</code>（见下方上传）。</p>
+<div class="admin-staff-toolbar admin-staff-toolbar--list">
+<button type="button" class="outline secondary" id="staffReloadListBtn">重新拉取</button>
+<button type="button" class="outline contrast" id="staffAddMemberBtn">添加成员</button>
+</div>
+<div id="staffMembersMount" class="admin-staff-members"></div>
+<div class="admin-split">
+<div class="admin-split__editor admin-form-scroll">
+<fieldset id="staffEditFieldset">
+<legend>当前成员 meta</legend>
+<p id="staffNoSelection" class="admin-muted">请在上方的成员条目中点击一行以选中并编辑。</p>
+<div id="staffEditFields" hidden>
+<label for="staffOrder">排序 order（数字越小越靠左）</label>
+<input type="number" id="staffOrder" step="1"/>
+<label for="staffName">显示名 name</label>
+<input type="text" id="staffName" autocomplete="off"/>
+<label for="staffTitle">职位 title</label>
+<input type="text" id="staffTitle" autocomplete="off"/>
+<label for="staffBio">介绍 bio</label>
+<textarea id="staffBio" rows="6" spellcheck="false"></textarea>
+<label for="staffColor">左侧大名颜色</label>
+<div class="admin-staff-color-row">
+<input type="color" id="staffColorPick" value="#EA323C" title="取色"/>
+<input type="text" id="staffColor" placeholder="#EA323C" autocomplete="off" spellcheck="false"/>
+</div>
+<p class="admin-muted admin-staff-fixed-files">图片文件名固定为 <code>head.png</code>、<code>portrait.png</code>，请用下方按钮覆盖上传。</p>
+<p id="staffSaveMsg" class="admin-msg" role="status"></p>
+<button type="button" id="staffSaveBtn">保存</button>
+<div class="admin-staff-upload-grid">
+<div class="admin-staff-uploads admin-upload-box">
+<input type="file" id="staffUploadHead" class="admin-uploads-file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,.png,.jpg,.jpeg,.gif,.webp,.avif"/>
+<label for="staffUploadHead" class="outline contrast admin-uploads-filelabel">上传小头像（保存为 head.png）</label>
+</div>
+<div class="admin-staff-uploads admin-upload-box">
+<input type="file" id="staffUploadPortrait" class="admin-uploads-file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,.png,.jpg,.jpeg,.gif,.webp,.avif"/>
+<label for="staffUploadPortrait" class="outline contrast admin-uploads-filelabel">上传立绘（保存为 portrait.png）</label>
+</div>
+</div>
+<div id="staffFiles" class="admin-staff-files"></div>
+</div>
+</fieldset>
+</div>
+<div class="admin-split__preview">
+<div id="staffPreviewPanel" class="admin-staff-preview-card" aria-live="polite" style="--staff-accent:#EA323C">
+<p class="admin-staff-preview-eyebrow">成员预览</p>
+<div class="admin-staff-preview-head">
+<h3 id="staffPvName" class="admin-staff-preview-name"></h3>
+<p id="staffPvTitle" class="admin-staff-preview-title"></p>
+</div>
+<div class="admin-staff-preview-visuals">
+<figure class="admin-staff-preview-slot">
+<figcaption>小头像</figcaption>
+<div class="admin-staff-preview-frame"><img id="staffPvHead" alt="" width="104" height="104" decoding="async"/></div>
+</figure>
+<figure class="admin-staff-preview-slot">
+<figcaption>立绘</figcaption>
+<div class="admin-staff-preview-frame"><img id="staffPvPortrait" alt="" width="104" height="104" decoding="async"/></div>
+</figure>
+</div>
+<div class="admin-staff-preview-meta">
+<span class="admin-staff-preview-k">强调色</span>
+<span id="staffPvColorSwatch" class="admin-staff-preview-swatch" aria-hidden="true"></span>
+<code id="staffPvColorHex" class="admin-staff-preview-hex"></code>
+</div>
+<div class="admin-staff-preview-bio-block">
+<span class="admin-staff-preview-k">介绍</span>
+<p id="staffPvBio" class="admin-staff-preview-bio"></p>
+</div>
+</div>
+</div>
+</div>
+</article>
+<article id="panelSite" class="admin-panel" hidden>
+<p class="admin-meta">固定路径：<code>web/img/favicon.png</code>、<code>web/img/brand-logo.png</code>（导航左上角）、<code>web/img/hero-float.png</code>（首页与百科 Hero 内上下浮动图）。仅 PNG。</p>
+<div class="admin-site-assets">
+<div class="admin-site-asset">
+<p class="admin-site-asset__label">favicon.png</p>
+<img id="siteFaviconPrev" class="admin-site-asset__img" src="/img/favicon.png" alt=""/>
+<div class="admin-upload-box admin-upload-box--compact">
+<input type="file" id="siteFaviconInput" class="admin-site-file" accept="image/png"/>
+<label for="siteFaviconInput" class="outline contrast admin-site-filelabel">选择 PNG 并上传</label>
+</div>
+</div>
+<div class="admin-site-asset">
+<p class="admin-site-asset__label">brand-logo.png（导航）</p>
+<img id="siteBrandLogoPrev" class="admin-site-asset__img admin-site-asset__img--brand" src="/img/brand-logo.png" alt=""/>
+<div class="admin-upload-box admin-upload-box--compact">
+<input type="file" id="siteBrandLogoInput" class="admin-site-file" accept="image/png"/>
+<label for="siteBrandLogoInput" class="outline contrast admin-site-filelabel">选择 PNG 并上传</label>
+</div>
+</div>
+<div class="admin-site-asset">
+<p class="admin-site-asset__label">hero-float.png（Hero 浮动图）</p>
+<img id="siteHeroFloatPrev" class="admin-site-asset__img admin-site-asset__img--brand" src="/img/hero-float.png" alt=""/>
+<div class="admin-upload-box admin-upload-box--compact">
+<input type="file" id="siteHeroFloatInput" class="admin-site-file" accept="image/png"/>
+<label for="siteHeroFloatInput" class="outline contrast admin-site-filelabel">选择 PNG 并上传</label>
+</div>
+</div>
+</div>
+<p id="siteAssetMsg" class="admin-msg" role="status"></p>
 </article>
 <dialog id="wikiUploadsDlg" class="admin-uploads-dlg">
 <article class="admin-uploads-dlg__inner">
@@ -74,9 +219,11 @@
 <button type="button" class="secondary admin-uploads-close" id="wikiUploadsDlgClose" aria-label="关闭">×</button>
 </header>
 <p class="admin-muted admin-uploads-dlg__hint">点击缩略图复制插入语法 <code>![配图](/wiki/uploads/…)</code>；上传为随机名，可用「改名」改成易记文件名（仅字母数字、点、下划线、短横线，扩展名须为 png/jpg/gif/webp/svg/avif）。</p>
+<div class="admin-upload-box">
 <div class="admin-uploads-toolbar">
 <input type="file" id="wikiUploadFileInput" class="admin-uploads-file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/avif,.png,.jpg,.jpeg,.gif,.webp,.svg,.avif" multiple/>
-<label for="wikiUploadFileInput" class="outline contrast admin-uploads-filelabel">上传</label>
+<label for="wikiUploadFileInput" class="outline contrast admin-uploads-filelabel">选择图片并上传</label>
+</div>
 </div>
 <p id="wikiUploadsDlgStatus" class="admin-uploads-dlg__status" role="status" aria-live="polite"></p>
 <div id="wikiUploadsGrid" class="admin-uploads-grid"></div>

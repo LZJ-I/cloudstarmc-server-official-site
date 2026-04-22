@@ -50,9 +50,13 @@ function sniffImageMime(buf) {
 }
 
 export function createAdminRouter(options) {
-  const { wikiMdPath, verifyUser, verifyPassword, sessionMaxMs } = options;
+  const { wikiMdPath, featuresJsonPath, joinGuideJsonPath, staffRootPath, webDir, verifyUser, verifyPassword, sessionMaxMs } = options;
   const wikiMdResolved = path.resolve(wikiMdPath);
   const wikiUploadDir = path.resolve(path.join(path.dirname(wikiMdResolved), "uploads"));
+  const featuresJsonResolved = featuresJsonPath ? path.resolve(featuresJsonPath) : null;
+  const joinGuideJsonResolved = joinGuideJsonPath ? path.resolve(joinGuideJsonPath) : null;
+  const staffRootResolved = staffRootPath ? path.resolve(staffRootPath) : null;
+  const webDirResolved = webDir ? path.resolve(webDir) : path.resolve(path.join(path.dirname(wikiMdResolved), ".."));
   void fsp.mkdir(wikiUploadDir, { recursive: true }).catch(() => {});
 
   let sessionSecret = process.env.ADMIN_SESSION_SECRET;
@@ -67,10 +71,25 @@ export function createAdminRouter(options) {
 
   const router = express.Router();
 
+  function setAdminCors(req, res) {
+    const o = req.headers.origin;
+    if (o) {
+      res.setHeader("Access-Control-Allow-Origin", o);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      if (!res.getHeader("Vary")) {
+        res.setHeader("Vary", "Origin");
+      }
+    }
+  }
+
   router.use((req, res, next) => {
     if (req.method === "OPTIONS") {
+      setAdminCors(req, res);
       res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS");
-      res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Upload-Name");
+      res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Content-Type, X-Upload-Name, X-Site-Asset, X-Http-Action, Authorization, Cookie"
+      );
       res.setHeader("Access-Control-Max-Age", "86400");
       return res.sendStatus(204);
     }
@@ -93,6 +112,11 @@ export function createAdminRouter(options) {
       },
     })
   );
+
+  router.use((req, res, next) => {
+    setAdminCors(req, res);
+    next();
+  });
 
   router.use((req, res, next) => {
     const t0 = Date.now();
@@ -128,7 +152,33 @@ export function createAdminRouter(options) {
 
   const json64k = express.json({ limit: "64kb" });
   const jsonWiki = express.json({ limit: "12mb" });
-  const rawUploadBody = express.raw({ limit: "8mb", type: () => true });
+  const jsonMid = express.json({ limit: "512kb" });
+  const jsonStaffMeta = express.json({ limit: "1mb" });
+  const rawUploadBody = express.raw({ limit: "32mb", type: () => true });
+  const rawSiteAssetBody = express.raw({ limit: "32mb", type: () => true });
+
+  function assertStaffMemberId(id) {
+    const s = String(id || "").trim();
+    if (!s || s !== path.basename(s)) throw new Error("非法成员目录");
+    if (s.includes("..") || /[/\\]/.test(s)) throw new Error("非法成员目录");
+    if (s.startsWith(".")) throw new Error("非法成员目录");
+    if (s.length > 80) throw new Error("非法成员目录");
+    if (!/^[A-Za-z0-9_-]+$/.test(s)) throw new Error("非法成员目录");
+    return s;
+  }
+
+  function assertStaffFileName(name) {
+    return assertWikiUploadName(name);
+  }
+
+  function assertWikiUploadName(name) {
+    const s = String(name || "").trim();
+    if (!s || s !== path.basename(s)) throw new Error("非法文件名");
+    if (s.includes("..")) throw new Error("非法文件名");
+    if (s.startsWith(".") || s.length > 120) throw new Error("非法文件名");
+    if (!WIKI_UPLOAD_IMAGE_RE.test(s)) throw new Error("仅支持 png/jpg/gif/webp/svg/avif");
+    return s;
+  }
 
   router.post("/login", json64k, (req, res) => {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -189,7 +239,7 @@ export function createAdminRouter(options) {
     }
   });
 
-  router.put("/wiki", requireAdmin, jsonWiki, async (req, res) => {
+  const putWiki = async (req, res) => {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
     try {
@@ -203,7 +253,9 @@ export function createAdminRouter(options) {
     } catch (e) {
       return res.status(500).json({ error: String(e && e.message ? e.message : e) });
     }
-  });
+  };
+  router.put("/wiki", requireAdmin, jsonWiki, putWiki);
+  router.post("/wiki", requireAdmin, jsonWiki, putWiki);
 
   router.get("/wiki-uploads", requireAdmin, async (req, res) => {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -221,18 +273,9 @@ export function createAdminRouter(options) {
     }
   });
 
-  function assertWikiUploadName(name) {
-    const s = String(name || "").trim();
-    if (!s || s !== path.basename(s)) throw new Error("非法文件名");
-    if (s.includes("..")) throw new Error("非法文件名");
-    if (s.startsWith(".") || s.length > 120) throw new Error("非法文件名");
-    if (!WIKI_UPLOAD_IMAGE_RE.test(s)) throw new Error("仅支持 png/jpg/gif/webp/svg/avif");
-    return s;
-  }
-
   const uploadImage = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 8 * 1024 * 1024, files: 1 },
+    limits: { fileSize: 32 * 1024 * 1024, files: 1 },
     fileFilter: (req, file, cb) => {
       const m = String(file.mimetype || "").toLowerCase();
       if (m.startsWith("image/")) return cb(null, true);
@@ -269,7 +312,7 @@ export function createAdminRouter(options) {
         if (err.name === "MulterError") {
           const msg =
             err.code === "LIMIT_FILE_SIZE"
-              ? "文件超过 8MB 上限"
+              ? "文件超过 32MB 上限"
               : err.code === "LIMIT_UNEXPECTED_FILE"
                 ? "请单文件上传，表单字段名须为 file"
                 : String(err.message || err.code || err);
@@ -314,7 +357,7 @@ export function createAdminRouter(options) {
     }
   });
 
-  router.delete("/wiki-uploads/item", requireAdmin, json64k, async (req, res) => {
+  const deleteWikiUploadItem = async (req, res) => {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
     try {
@@ -327,9 +370,8 @@ export function createAdminRouter(options) {
       if (msg.includes("非法") || msg.includes("仅支持")) return res.status(400).json({ error: msg });
       return res.status(500).json({ error: msg });
     }
-  });
-
-  router.patch("/wiki-uploads/item", requireAdmin, json64k, async (req, res) => {
+  };
+  const patchWikiUploadItem = async (req, res) => {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
     try {
@@ -350,6 +392,291 @@ export function createAdminRouter(options) {
       if (msg.includes("非法") || msg.includes("仅支持")) return res.status(400).json({ error: msg });
       return res.status(500).json({ error: msg });
     }
+  };
+  router.delete("/wiki-uploads/item", requireAdmin, json64k, deleteWikiUploadItem);
+  router.post("/wiki-uploads/item-delete", requireAdmin, json64k, deleteWikiUploadItem);
+  router.patch("/wiki-uploads/item", requireAdmin, json64k, patchWikiUploadItem);
+  router.post("/wiki-uploads/item-rename", requireAdmin, json64k, patchWikiUploadItem);
+
+  if (featuresJsonResolved) {
+    router.get("/features", requireAdmin, async (req, res) => {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store");
+      try {
+        let content = "";
+        try {
+          content = await fsp.readFile(featuresJsonResolved, "utf8");
+        } catch {}
+        return res.json({ content });
+      } catch (e) {
+        return res.status(500).json({ error: String((e && e.message) || e) });
+      }
+    });
+
+    const putFeatures = async (req, res) => {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store");
+      try {
+        const body = req.body;
+        if (!body || typeof body.content !== "string") {
+          return res.status(400).json({ error: "missing content" });
+        }
+        JSON.parse(String(body.content).replace(/^\uFEFF/, ""));
+        await fsp.mkdir(path.dirname(featuresJsonResolved), { recursive: true });
+        await fsp.writeFile(featuresJsonResolved, body.content, "utf8");
+        return res.json({ ok: true });
+      } catch (e) {
+        if (e instanceof SyntaxError) {
+          return res.status(400).json({ error: "不是合法 JSON：" + String((e && e.message) || e) });
+        }
+        return res.status(500).json({ error: String((e && e.message) || e) });
+      }
+    };
+    router.put("/features", requireAdmin, jsonMid, putFeatures);
+    router.post("/features", requireAdmin, jsonMid, putFeatures);
+  }
+
+  if (joinGuideJsonResolved) {
+    router.get("/join-guide", requireAdmin, async (req, res) => {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store");
+      try {
+        let content = "";
+        try {
+          content = await fsp.readFile(joinGuideJsonResolved, "utf8");
+        } catch {}
+        return res.json({ content });
+      } catch (e) {
+        return res.status(500).json({ error: String((e && e.message) || e) });
+      }
+    });
+
+    const putJoinGuide = async (req, res) => {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store");
+      try {
+        const body = req.body;
+        if (!body || typeof body.content !== "string") {
+          return res.status(400).json({ error: "missing content" });
+        }
+        JSON.parse(String(body.content).replace(/^\uFEFF/, ""));
+        await fsp.mkdir(path.dirname(joinGuideJsonResolved), { recursive: true });
+        await fsp.writeFile(joinGuideJsonResolved, body.content, "utf8");
+        return res.json({ ok: true });
+      } catch (e) {
+        if (e instanceof SyntaxError) {
+          return res.status(400).json({ error: "不是合法 JSON：" + String((e && e.message) || e) });
+        }
+        return res.status(500).json({ error: String((e && e.message) || e) });
+      }
+    };
+    router.put("/join-guide", requireAdmin, jsonMid, putJoinGuide);
+    router.post("/join-guide", requireAdmin, jsonMid, putJoinGuide);
+  }
+
+  if (staffRootResolved) {
+    router.get("/staff/list", requireAdmin, async (req, res) => {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store");
+      try {
+        const names = await fsp.readdir(staffRootResolved, { withFileTypes: true });
+        const members = [];
+        for (const d of names) {
+          if (!d.isDirectory() || d.name.startsWith(".")) continue;
+          if (d.name === "_template") continue;
+          let order = 1_000_000;
+          let displayName = d.name;
+          try {
+            const raw = (await fsp.readFile(path.join(staffRootResolved, d.name, "meta.json"), "utf8")).replace(/^\uFEFF/, "");
+            const meta = JSON.parse(raw);
+            if (meta && typeof meta === "object" && !Array.isArray(meta)) {
+              if (typeof meta.order === "number" && Number.isFinite(meta.order)) order = meta.order;
+              const nm = meta.name != null ? String(meta.name).trim() : "";
+              if (nm) displayName = nm;
+            }
+          } catch {}
+          members.push({ id: d.name, order, displayName });
+        }
+        members.sort((a, b) => {
+          const d = a.order - b.order;
+          if (d !== 0) return d;
+          return String(a.id).localeCompare(String(b.id), "en");
+        });
+        return res.json({ members });
+      } catch (e) {
+        return res.status(500).json({ error: String((e && e.message) || e) });
+      }
+    });
+
+    router.post("/staff", requireAdmin, json64k, async (req, res) => {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store");
+      try {
+        const rawId = req.body && typeof req.body.id === "string" ? req.body.id.trim() : "";
+        if (!rawId) return res.status(400).json({ error: "缺少 id" });
+        const id = assertStaffMemberId(rawId);
+        if (id === "_template") return res.status(400).json({ error: "不能使用 _template 作为目录名" });
+        const dir = path.join(staffRootResolved, id);
+        try {
+          await fsp.access(dir);
+          return res.status(409).json({ error: "目录已存在" });
+        } catch {}
+        let metaBody =
+          '{\n  "order": 100,\n  "name": "新成员",\n  "title": "",\n  "bio": "",\n  "color": "#EA323C",\n  "headFile": "head.png",\n  "portraitFile": "portrait.png"\n}\n';
+        try {
+          metaBody = await fsp.readFile(path.join(staffRootResolved, "_template", "meta.json"), "utf8");
+        } catch {}
+        await fsp.mkdir(dir, { recursive: true });
+        await fsp.writeFile(path.join(dir, "meta.json"), metaBody, "utf8");
+        return res.json({ ok: true, id });
+      } catch (e) {
+        const msg = String((e && e.message) || e);
+        if (msg.includes("非法")) return res.status(400).json({ error: msg });
+        return res.status(500).json({ error: msg });
+      }
+    });
+
+    const deleteStaffDir = async (req, res) => {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store");
+      try {
+        const id = assertStaffMemberId(req.params.memberId);
+        if (id === "_template") return res.status(400).json({ error: "不能删除 _template" });
+        const dir = path.join(staffRootResolved, id);
+        await fsp.rm(dir, { recursive: true, force: true });
+        return res.json({ ok: true });
+      } catch (e) {
+        if (e && e.code === "ENOENT") return res.status(404).json({ error: "成员目录不存在" });
+        const msg = String((e && e.message) || e);
+        if (msg.includes("非法")) return res.status(400).json({ error: msg });
+        return res.status(500).json({ error: msg });
+      }
+    };
+    router.delete("/staff/:memberId", requireAdmin, deleteStaffDir);
+    router.post("/staff/:memberId/delete", requireAdmin, deleteStaffDir);
+
+    router.get("/staff/:memberId", requireAdmin, async (req, res) => {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store");
+      try {
+        const id = assertStaffMemberId(req.params.memberId);
+        const dir = path.join(staffRootResolved, id);
+        const st = await fsp.stat(dir);
+        if (!st.isDirectory()) return res.status(404).json({ error: "成员目录不存在" });
+        let metaText = "";
+        try {
+          metaText = await fsp.readFile(path.join(dir, "meta.json"), "utf8");
+        } catch {
+          metaText = "";
+        }
+        const all = await fsp.readdir(dir);
+        const files = all
+          .filter((n) => n && !n.startsWith(".") && n !== "meta.json" && WIKI_UPLOAD_IMAGE_RE.test(n))
+          .sort((a, b) => a.localeCompare(b, "en"));
+        return res.json({ id, metaText, files });
+      } catch (e) {
+        const msg = String((e && e.message) || e);
+        if (msg.includes("非法")) return res.status(400).json({ error: msg });
+        if (e && e.code === "ENOENT") return res.status(404).json({ error: "成员目录不存在" });
+        return res.status(500).json({ error: msg });
+      }
+    });
+
+    const saveStaffMeta = async (req, res) => {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store");
+      try {
+        const id = assertStaffMemberId(req.params.memberId);
+        const body = req.body;
+        if (!body || typeof body.content !== "string") {
+          return res.status(400).json({ error: "missing content" });
+        }
+        const text = String(body.content).replace(/^\uFEFF/, "");
+        JSON.parse(text);
+        const dir = path.join(staffRootResolved, id);
+        await fsp.mkdir(dir, { recursive: true });
+        await fsp.writeFile(path.join(dir, "meta.json"), text, "utf8");
+        return res.json({ ok: true });
+      } catch (e) {
+        if (e instanceof SyntaxError) {
+          return res.status(400).json({ error: "不是合法 JSON：" + String((e && e.message) || e) });
+        }
+        if (e && (e.code === "EACCES" || e.code === "EPERM")) {
+          return res
+            .status(500)
+            .json({ error: "无权限写入 web/staff 下文件，请检查服务进程用户与目录权限" });
+        }
+        const msg = String((e && e.message) || e);
+        if (msg.includes("非法")) return res.status(400).json({ error: msg });
+        return res.status(500).json({ error: msg });
+      }
+    };
+    router.put("/staff/:memberId/meta", requireAdmin, jsonStaffMeta, saveStaffMeta);
+    router.post("/staff/:memberId/meta", requireAdmin, jsonStaffMeta, saveStaffMeta);
+
+    router.post("/staff/:memberId/upload-bin", requireAdmin, rawUploadBody, async (req, res) => {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store");
+      try {
+        const id = assertStaffMemberId(req.params.memberId);
+        const buf = req.body;
+        if (!Buffer.isBuffer(buf) || !buf.length) return res.status(400).json({ error: "空文件" });
+        let mime = String(req.headers["content-type"] || "").split(";")[0].trim().toLowerCase();
+        if (!mime.startsWith("image/")) mime = sniffImageMime(buf);
+        if (!mime || !mime.startsWith("image/")) return res.status(400).json({ error: "仅支持图片" });
+        let origName = "";
+        try {
+          origName = decodeURIComponent(String(req.headers["x-upload-name"] || ""));
+        } catch {}
+        let base = path.basename(String(origName).replace(/\\/g, "/").slice(0, 200)) || "image.png";
+        if (!base || base === ".") base = "image.png";
+        let name = base;
+        if (!WIKI_UPLOAD_IMAGE_RE.test(name)) {
+          const stem = base.includes(".") ? base.slice(0, base.lastIndexOf(".")) : base;
+          name = (stem || "image") + imageExtForUpload({ mimetype: mime, originalname: base });
+        }
+        name = assertStaffFileName(name);
+        const dir = path.join(staffRootResolved, id);
+        await fsp.mkdir(dir, { recursive: true });
+        await fsp.writeFile(path.join(dir, name), buf);
+        return res.json({ name, repoPath: `web/staff/${id}/${name}` });
+      } catch (e) {
+        const msg = String((e && e.message) || e);
+        if (msg.includes("非法") || msg.includes("仅支持")) return res.status(400).json({ error: msg });
+        return res.status(500).json({ error: msg });
+      }
+    });
+
+  }
+
+  router.post("/site-asset", requireAdmin, rawSiteAssetBody, async (req, res) => {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const kind = String(req.headers["x-site-asset"] || "").toLowerCase();
+      const relMap = {
+        favicon: path.join("img", "favicon.png"),
+        brand: path.join("img", "brand-logo.png"),
+        "hero-float": path.join("img", "hero-float.png"),
+      };
+      if (!Object.prototype.hasOwnProperty.call(relMap, kind)) {
+        return res.status(400).json({ error: "请求头 X-Site-Asset 须为 favicon、brand 或 hero-float" });
+      }
+      const buf = req.body;
+      if (!Buffer.isBuffer(buf) || !buf.length) return res.status(400).json({ error: "空文件" });
+      let mime = String(req.headers["content-type"] || "").split(";")[0].trim().toLowerCase();
+      if (!mime.startsWith("image/")) mime = sniffImageMime(buf);
+      if (mime !== "image/png") {
+        return res.status(400).json({ error: "仅支持 PNG（favicon.png / brand-logo.png / hero-float.png）" });
+      }
+      const rel = relMap[kind];
+      const dest = path.join(webDirResolved, rel);
+      await fsp.mkdir(path.dirname(dest), { recursive: true });
+      await fsp.writeFile(dest, buf);
+      return res.json({ ok: true, path: "web/" + rel.replace(/\\/g, "/") });
+    } catch (e) {
+      return res.status(500).json({ error: String((e && e.message) || e) });
+    }
   });
 
   router.use((err, req, res, next) => {
@@ -367,14 +694,14 @@ export function createAdminRouter(options) {
     if (err && err.name === "MulterError") {
       const msg =
         err.code === "LIMIT_FILE_SIZE"
-          ? "文件超过 8MB 上限"
+          ? "文件超过 32MB 上限"
           : err.code === "LIMIT_UNEXPECTED_FILE"
             ? "请单文件上传，表单字段名须为 file"
             : String(err.message || err.code || err);
       return res.status(400).json({ error: msg });
     }
     if (err && (err.status === 413 || err.statusCode === 413 || err.type === "entity.too.large")) {
-      return res.status(413).json({ error: "正文过大，请删减后重试（上限约 12MB）" });
+      return res.status(413).json({ error: "正文过大，请删减后重试（单文件/上传体上限约 32MB）" });
     }
     if (err instanceof SyntaxError && "body" in err) {
       return res.status(400).json({ error: "请求体不是合法 JSON" });
