@@ -1,8 +1,9 @@
 ﻿{
-  "name": "示例姓名",
+  "order": 10,
+  "name": "示例",
   "title": "示例职位",
-  "bio": "示例介绍段落。",
+  "bio": "示例介绍段落。\n第二行\n第三行",
   "color": "#EA323C",
   "headFile": "head.png",
-  "portraitFile": "head.png"
+  "portraitFile": "portrait.png"
 }

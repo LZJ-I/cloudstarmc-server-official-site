@@ -2,25 +2,19 @@ const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)
 const OR_TEAM_TICK_MS = 8000;
 const OR_TEAM_PROGRESS_STEP_MS = 80;
 const OR_TEAM_XF_DONE_MS = 560;
-function teamStaticJsonUrl() {
-  try {
-    return new URL("staff/team.json", document.baseURI).href;
-  } catch (e) {
-    return "/staff/team.json";
-  }
-}
-var IMG_DEFAULT_HEAD = "/img/default-head.png";
+var STAFF_TPL_HEAD = "/staff/_template/head.png";
+var STAFF_TPL_PORTRAIT = "/staff/_template/portrait.png";
 function staffAssetUrl(memberId, file) {
   var f = String(file == null ? "" : file).replace(/\\/g, "/").trim();
-  if (!f) return IMG_DEFAULT_HEAD;
+  if (!f) return STAFF_TPL_HEAD;
   if (f.indexOf("/") >= 0) {
     var parts = f.split("/").filter(function (p) {
       return p && p !== "." && p !== "..";
     });
-    if (!parts.length) return IMG_DEFAULT_HEAD;
-    return "/staff/" + parts.map(encodeURIComponent).join("/");
+    f = parts.length ? parts[parts.length - 1] : "";
   }
-  if (!memberId) return IMG_DEFAULT_HEAD;
+  if (!f) return STAFF_TPL_HEAD;
+  if (!memberId) return STAFF_TPL_HEAD;
   return "/staff/" + encodeURIComponent(String(memberId)) + "/" + encodeURIComponent(f);
 }
 function staffHeadUrl(id, headFile) {
@@ -43,6 +37,13 @@ function initOriginTeam(orStaff) {
   var prevBtn = document.getElementById("orTeamPrev");
   var nextBtn = document.getElementById("orTeamNext");
   if (!parchment || !subtitle || !slide0 || !slide1 || !strip || !photo0 || !photo1 || !progress) return;
+  var track = document.getElementById("orTeamTrack");
+  if (!track) {
+    track = document.createElement("div");
+    track.id = "orTeamTrack";
+    track.className = "or-team__strip-track";
+    strip.appendChild(track);
+  }
   var teamGrid = parchment.querySelector(".or-team__grid");
   var slides = [slide0, slide1];
   var photos = [photo0, photo1];
@@ -55,6 +56,87 @@ function initOriginTeam(orStaff) {
   var xfSeq = 0;
   var xfTimer = null;
   var portraitTok = 0;
+  var stripSmoothScroll = !prefersReducedMotion;
+  var stripWrap = strip ? strip.parentElement : null;
+  var stripRoRaf = null;
+  function faceScrollExtents(el) {
+    var x = 0;
+    for (var n = el; n && n !== strip; n = n.offsetParent) {
+      x += n.offsetLeft;
+    }
+    var w = el.offsetWidth;
+    return { left: x, right: x + w };
+  }
+  function stripInnerViewport() {
+    var s = getComputedStyle(strip);
+    var pl = parseFloat(s.paddingLeft) || 0;
+    var pr = parseFloat(s.paddingRight) || 0;
+    return {
+      innerW: Math.max(1, strip.clientWidth - pl - pr),
+      maxScroll: Math.max(0, strip.scrollWidth - strip.clientWidth)
+    };
+  }
+  function updateStripFade() {
+    if (!strip) return;
+    if (!faces.length || strip.scrollWidth <= strip.clientWidth + 1) {
+      strip.setAttribute("data-strip-fade", "none");
+      return;
+    }
+    var max = strip.scrollWidth - strip.clientWidth;
+    var sl = strip.scrollLeft;
+    var eps = 2;
+    var atStart = sl <= eps;
+    var atEnd = sl >= max - eps;
+    var mode = "lr";
+    if (atStart && !atEnd) mode = "r";
+    else if (!atStart && atEnd) mode = "l";
+    else if (atStart && atEnd) mode = "none";
+    strip.setAttribute("data-strip-fade", mode);
+  }
+  function syncStrip(instant) {
+    if (!strip || !faces.length) {
+      updateStripFade();
+      return;
+    }
+    var el = faces[idx];
+    if (!el) {
+      updateStripFade();
+      return;
+    }
+    if (strip.scrollWidth <= strip.clientWidth + 1) {
+      strip.scrollLeft = 0;
+      updateStripFade();
+      return;
+    }
+    var vp = stripInnerViewport();
+    var sl = strip.scrollLeft;
+    var vL = sl;
+    var vR = sl + vp.innerW;
+    var b = faceScrollExtents(el);
+    var m = 6;
+    if (b.left >= vL + m && b.right <= vR - m) {
+      updateStripFade();
+      return;
+    }
+    var next = sl;
+    if (b.right > vR - m) {
+      next += b.right - (vR - m);
+    }
+    if (b.left < next + m) {
+      next = b.left - m;
+    }
+    next = Math.round(Math.max(0, Math.min(vp.maxScroll, next)));
+    if (instant || !stripSmoothScroll) {
+      strip.scrollLeft = next;
+    } else {
+      try {
+        strip.scrollTo({ left: next, top: 0, behavior: "smooth" });
+      } catch (e) {
+        strip.scrollLeft = next;
+      }
+    }
+    updateStripFade();
+  }
   function clearXfTimer() {
     if (xfTimer) {
       window.clearTimeout(xfTimer);
@@ -118,6 +200,24 @@ function initOriginTeam(orStaff) {
     }
   }
   var DEFAULT_ACCENT = "#EA323C";
+  function buildBioText(m) {
+    var base = m.bio == null ? "" : String(m.bio).replace(/\r\n/g, "\n").replace(/\\n/g, "\n");
+    var parts = [];
+    if (m._headNote) parts.push("【小头像】" + m._headNote);
+    if (m._portraitNote) parts.push("【大图】" + m._portraitNote);
+    if (parts.length) return parts.join("\n") + (base ? "\n\n" + base : "");
+    return base;
+  }
+  function refreshMemberBio(memberIdx) {
+    var m = orStaff[memberIdx];
+    if (!m) return;
+    var t = buildBioText(m);
+    for (var s = 0; s < 2; s++) {
+      if (String(slides[s].dataset.orMemberIdx || "") !== String(memberIdx)) continue;
+      var bio = slides[s].querySelector(".or-team__bio");
+      if (bio) bio.textContent = t;
+    }
+  }
   function accentColor(m) {
     var c = m && m.color != null ? String(m.color).trim() : "";
     if (/^#[0-9A-Fa-f]{3}$|^#[0-9A-Fa-f]{6}$|^#[0-9A-Fa-f]{8}$/.test(c)) return c;
@@ -129,6 +229,7 @@ function initOriginTeam(orStaff) {
   function fillSlideInto(el, mi) {
     var m = orStaff[mi];
     if (!m) return;
+    el.dataset.orMemberIdx = String(mi);
     var c = accentColor(m);
     el.style.setProperty("--or-accent", c);
     el.innerHTML =
@@ -137,14 +238,29 @@ function initOriginTeam(orStaff) {
       ';text-align:left"><div class="or-team__name"></div><div class="or-team__title-pill"><span class="or-team__title-text"></span></div></div><p class="or-team__bio"></p>';
     el.querySelector(".or-team__name").textContent = m.name;
     el.querySelector(".or-team__title-text").textContent = m.title || "";
-    var bioRaw = m.bio == null ? "" : String(m.bio);
-    el.querySelector(".or-team__bio").textContent = bioRaw.replace(/\r\n/g, "\n").replace(/\\n/g, "\n");
+    el.querySelector(".or-team__bio").textContent = buildBioText(m);
   }
-  function paintPortraitInto(el, m) {
+  function paintPortraitInto(el, m, memberIdx) {
     var id = m && m.id != null ? String(m.id) : "";
+    if (m._portraitNote) {
+      delete m._portraitNote;
+      refreshMemberBio(memberIdx);
+    }
     portraitTok += 1;
     var tok = portraitTok;
     var pf = (m && m.portraitFile) || "portrait.png";
+    function afterNote(msg) {
+      if (tok !== portraitTok) return;
+      m._portraitNote = msg;
+      refreshMemberBio(memberIdx);
+    }
+    function clearNote() {
+      if (tok !== portraitTok) return;
+      if (m._portraitNote) {
+        delete m._portraitNote;
+        refreshMemberBio(memberIdx);
+      }
+    }
     function applySrc(u) {
       if (tok !== portraitTok) return;
       var im = el.querySelector("img.or-team__portrait-img");
@@ -161,25 +277,46 @@ function initOriginTeam(orStaff) {
     if (id) {
       var probe = new Image();
       probe.onload = function () {
+        if (tok !== portraitTok) return;
+        clearNote();
         var u = staffPortraitUrl(id, pf);
         requestAnimationFrame(function () {
           applySrc(u);
         });
       };
       probe.onerror = function () {
+        if (tok !== portraitTok) return;
         probe.onerror = null;
+        afterNote("本目录 " + (pf || "portrait.png") + " 未成功加载，正在尝试小头像个文件。");
         var probe2 = new Image();
         probe2.onload = function () {
+          if (tok !== portraitTok) return;
+          afterNote("本目录立绘未成功加载，已暂用小头像同图。");
           applySrc(staffHeadUrl(id, m.headFile));
         };
         probe2.onerror = function () {
-          applySrc(IMG_DEFAULT_HEAD);
+          if (tok !== portraitTok) return;
+          afterNote("本目录小头像、立绘均不可用，正尝试 _template/portrait.png。");
+          var probe3 = new Image();
+          probe3.onload = function () {
+            if (tok !== portraitTok) return;
+            afterNote("已回退为 web/staff/_template/portrait.png。");
+            applySrc(STAFF_TPL_PORTRAIT);
+          };
+          probe3.onerror = function () {
+            if (tok !== portraitTok) return;
+            afterNote("已回退为 web/staff/_template/head.png。");
+            applySrc(STAFF_TPL_HEAD);
+          };
+          probe3.src = STAFF_TPL_PORTRAIT;
         };
         probe2.src = staffHeadUrl(id, m.headFile);
       };
       probe.src = staffPortraitUrl(id, pf);
     } else {
-      applySrc(IMG_DEFAULT_HEAD);
+      m._portraitNote = "成员 id 缺失，大图使用 _template/head.png。";
+      refreshMemberBio(memberIdx);
+      applySrc(STAFF_TPL_HEAD);
     }
   }
   function crossfadeTo(memberIdx, xfDir) {
@@ -191,7 +328,7 @@ function initOriginTeam(orStaff) {
     var outgoing = shown;
     var incoming = 1 - shown;
     fillSlideInto(slides[incoming], memberIdx);
-    paintPortraitInto(photos[incoming], orStaff[memberIdx]);
+    paintPortraitInto(photos[incoming], orStaff[memberIdx], memberIdx);
     setSubtitle();
     if (prefersReducedMotion) {
       setSlidePane(slides[outgoing], "wait");
@@ -224,25 +361,6 @@ function initOriginTeam(orStaff) {
       });
     });
   }
-  function syncStrip() {
-    if (!strip) return;
-    strip.style.transform = "";
-    var face = faces[idx];
-    if (!face) return;
-    var sc = strip.clientWidth || 0;
-    var sw = strip.scrollWidth || 0;
-    if (!sc || !sw) return;
-    if (sw <= sc + 0.5) {
-      strip.scrollLeft = 0;
-      return;
-    }
-    var fc = face.offsetLeft + face.offsetWidth / 2;
-    var target = Math.round(fc - sc / 2);
-    var max = Math.max(0, sw - sc);
-    if (target < 0) target = 0;
-    if (target > max) target = max;
-    strip.scrollLeft = target;
-  }
   function updateFaces() {
     faces.forEach(function (b, i) {
       b.classList.toggle("is-active", i === idx);
@@ -261,9 +379,9 @@ function initOriginTeam(orStaff) {
     crossfadeTo(idx, xfDir);
     progressPct = 0;
     progress.style.width = "0%";
-    syncStrip();
-    requestAnimationFrame(syncStrip);
-    window.setTimeout(syncStrip, 340);
+    requestAnimationFrame(function () {
+      syncStrip(false);
+    });
   }
   orStaff.forEach(function (m, i) {
     var b = document.createElement("button");
@@ -273,25 +391,51 @@ function initOriginTeam(orStaff) {
     var im = document.createElement("img");
     im.src = staffHeadUrl(m.id, m.headFile);
     im.onerror = function () {
+      m._headNote = (m.headFile || "head.png") + " 未加载，已换用 _template/head.png。";
+      refreshMemberBio(i);
       im.onerror = null;
-      im.src = IMG_DEFAULT_HEAD;
-      requestAnimationFrame(syncStrip);
+      im.src = STAFF_TPL_HEAD;
+      requestAnimationFrame(function () {
+        syncStrip(true);
+      });
     };
     im.alt = "";
     im.addEventListener("load", function () {
-      requestAnimationFrame(syncStrip);
+      var idEnc = encodeURIComponent(String(m.id));
+      if (im.src.indexOf("/staff/" + idEnc + "/") >= 0) {
+        if (m._headNote) {
+          delete m._headNote;
+          refreshMemberBio(i);
+        }
+      } else {
+        refreshMemberBio(i);
+      }
+      requestAnimationFrame(function () {
+        syncStrip(true);
+      });
     });
     b.appendChild(im);
     b.addEventListener("click", function () {
       go(i, {});
     });
-    strip.appendChild(b);
+    track.appendChild(b);
     faces.push(b);
   });
   if (prevBtn) prevBtn.addEventListener("click", function () { go(idx - 1, {}); });
   if (nextBtn) nextBtn.addEventListener("click", function () { go(idx + 1, {}); });
+  strip.addEventListener("scroll", updateStripFade, { passive: true });
+  if (typeof ResizeObserver !== "undefined") {
+    var ro = new ResizeObserver(function () {
+      if (stripRoRaf) cancelAnimationFrame(stripRoRaf);
+      stripRoRaf = requestAnimationFrame(function () {
+        stripRoRaf = null;
+        syncStrip(true);
+      });
+    });
+    ro.observe(stripWrap || strip);
+  }
   fillSlideInto(slides[0], 0);
-  paintPortraitInto(photos[0], orStaff[0]);
+  paintPortraitInto(photos[0], orStaff[0], 0);
   setSlidePane(slides[0], "current");
   setSlidePane(slides[1], "wait");
   setPortraitPane(photos[0], "current");
@@ -299,12 +443,15 @@ function initOriginTeam(orStaff) {
   shown = 0;
   setSubtitle();
   updateFaces();
-  window.addEventListener("resize", syncStrip);
-  requestAnimationFrame(syncStrip);
-  requestAnimationFrame(function () {
-    requestAnimationFrame(syncStrip);
+  window.addEventListener("resize", function () {
+    syncStrip(true);
   });
-  window.setTimeout(syncStrip, 120);
+  requestAnimationFrame(function () {
+    syncStrip(true);
+  });
+  window.setTimeout(function () {
+    syncStrip(true);
+  }, 220);
   if (!prefersReducedMotion) {
     window.setInterval(function () {
       if (hoverPause || docHiddenPause) return;
@@ -337,42 +484,15 @@ export function bootTeam() {
         initOriginTeam(rows);
         return;
       }
-      return fetch(teamStaticJsonUrl(), { cache: "no-store" })
-        .then(function (r2) {
-          if (!r2.ok) return rows;
-          return r2.json();
-        })
-        .then(function (rows2) {
-          if (Array.isArray(rows2) && rows2.length) {
-            initOriginTeam(rows2);
-            return;
-          }
-          var sub = document.getElementById("orTeamSubtitle");
-          if (sub) {
-            sub.textContent = Array.isArray(rows)
-              ? "\u6682\u65e0\u6210\u5458\u6570\u636e\uff08\u8bf7\u68c0\u67e5 web/staff \u4e0e\u670d\u52a1\u7aef /api/team\uff09"
-              : "\u63a5\u53e3\u8fd4\u56de\u975e\u6570\u7ec4\uff0c\u8bf7\u67e5\u770b\u670d\u52a1\u7aef\u65e5\u5fd7";
-          }
-        });
+      var sub = document.getElementById("orTeamSubtitle");
+      if (sub) {
+        sub.textContent = Array.isArray(rows)
+          ? "\u6682\u65e0\u6210\u5458\u6570\u636e\uff08\u8bf7\u68c0\u67e5 web/staff \u4e0e\u670d\u52a1\u7aef /api/team\uff09"
+          : "\u63a5\u53e3\u8fd4\u56de\u975e\u6570\u7ec4\uff0c\u8bf7\u67e5\u770b\u670d\u52a1\u7aef\u65e5\u5fd7";
+      }
     })
     .catch(function () {
-      fetch(teamStaticJsonUrl(), { cache: "no-store" })
-        .then(function (r2) {
-          if (!r2.ok) throw new Error("no static");
-          return r2.json();
-        })
-        .then(function (rows2) {
-          if (Array.isArray(rows2) && rows2.length) {
-            initOriginTeam(rows2);
-            return;
-          }
-          var sub = document.getElementById("orTeamSubtitle");
-          if (sub) sub.textContent = "\u56e2\u961f\u6570\u636e\u52a0\u8f7d\u5931\u8d25\uff0c\u8bf7\u5237\u65b0\u9875\u9762\u6216\u7a0d\u540e\u518d\u8bd5";
-        })
-        .catch(function () {
-          var sub = document.getElementById("orTeamSubtitle");
-          if (sub) sub.textContent = "\u56e2\u961f\u6570\u636e\u52a0\u8f7d\u5931\u8d25\uff0c\u8bf7\u5237\u65b0\u9875\u9762\u6216\u7a0d\u540e\u518d\u8bd5";
-        });
+      var sub = document.getElementById("orTeamSubtitle");
+      if (sub) sub.textContent = "\u56e2\u961f\u6570\u636e\u52a0\u8f7d\u5931\u8d25\uff0c\u8bf7\u5237\u65b0\u9875\u9762\u6216\u7a0d\u540e\u518d\u8bd5";
     });
-
 }

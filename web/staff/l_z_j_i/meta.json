@@ -1,8 +1,9 @@
-﻿{
-  "name": "L_Z_J_I",
-  "title": "服主",
-  "bio": "哈哈哈哈哈哈哈，我是服主\n你好啊！",
+{
+  "order": 1,
+  "name": "",
+  "title": "服主/策划",
+  "bio": "一个帅哥",
   "color": "#EA323C",
-  "headFile": "face.png",
-  "portraitFile": "face.png"
+  "headFile": "head.png",
+  "portraitFile": "portrait.png"
 }

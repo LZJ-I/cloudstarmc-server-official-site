@@ -1,0 +1,9 @@
+{
+  "order": 92,
+  "name": "示例·朔风",
+  "title": "技术示例",
+  "bio": "占位文案：用于本地预览头像条与立绘切换效果。",
+  "color": "#0EA5E9",
+  "headFile": "head.png",
+  "portraitFile": "portrait.png"
+}

@@ -1,4 +1,4 @@
-﻿import fs from "node:fs";
+import fs from "node:fs";
 import path from "node:path";
 import url from "node:url";
 
@@ -20,25 +20,19 @@ const teamHeader = `const prefersReducedMotion = window.matchMedia("(prefers-red
 const OR_TEAM_TICK_MS = 8000;
 const OR_TEAM_PROGRESS_STEP_MS = 80;
 const OR_TEAM_XF_DONE_MS = 560;
-function teamStaticJsonUrl() {
-  try {
-    return new URL("staff/team.json", document.baseURI).href;
-  } catch (e) {
-    return "/staff/team.json";
-  }
-}
-var IMG_DEFAULT_HEAD = "/img/default-head.png";
+var STAFF_TPL_HEAD = "/staff/_template/head.png";
+var STAFF_TPL_PORTRAIT = "/staff/_template/portrait.png";
 function staffAssetUrl(memberId, file) {
   var f = String(file == null ? "" : file).replace(/\\\\/g, "/").trim();
-  if (!f) return IMG_DEFAULT_HEAD;
+  if (!f) return STAFF_TPL_HEAD;
   if (f.indexOf("/") >= 0) {
     var parts = f.split("/").filter(function (p) {
       return p && p !== "." && p !== "..";
     });
-    if (!parts.length) return IMG_DEFAULT_HEAD;
-    return "/staff/" + parts.map(encodeURIComponent).join("/");
+    f = parts.length ? parts[parts.length - 1] : "";
   }
-  if (!memberId) return IMG_DEFAULT_HEAD;
+  if (!f) return STAFF_TPL_HEAD;
+  if (!memberId) return STAFF_TPL_HEAD;
   return "/staff/" + encodeURIComponent(String(memberId)) + "/" + encodeURIComponent(f);
 }
 function staffHeadUrl(id, headFile) {

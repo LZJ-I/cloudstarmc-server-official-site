@@ -39,7 +39,6 @@ body{background:
   box-shadow:0 0 0 1px rgba(249,115,22,.45),0 8px 24px rgba(234,88,12,.28);
 }
 
-/* ---------- Team arrow direction fix ---------- */
 .or-team__pix3--l i{background:#fcd34d}
 .or-team__pix3--l i:nth-child(1){left:auto;right:0;bottom:0}
 .or-team__pix3--l i:nth-child(2){left:0;right:auto;bottom:4px}
@@ -54,7 +53,7 @@ body{background:
   border:none;
   transition:background .2s var(--ease-out),transform .15s var(--ease-out);
 }
-.or-team__icon-btn:hover{background:rgba(251,146,60,.12);opacity:1}
+.or-team__icon-btn:hover{background:rgba(251,146,60,.1);opacity:1}
 .or-team__icon-btn:active{transform:scale(.9)}
 
 /* ---------- Team portrait: remove black bg, blend with glass ---------- */
@@ -267,9 +266,8 @@ body{background:
   .or-team__headline{font-size:18px;gap:8px}
   .or-team__title-pill{font-size:12px;padding:4px 10px}
   .or-team__bio{font-size:14px;line-height:1.58}
-  .or-team__controls{gap:8px}
+  .or-team__controls{column-gap:8px;grid-template-columns:40px minmax(0,1fr) 40px}
   .or-team__icon-btn{width:40px;height:40px}
-  .or-team__strip{max-width:calc(100% - 92px)}
   .or-team__face{width:44px;height:44px;border-radius:10px}
 
   .social{padding:48px 16px}
@@ -296,7 +294,7 @@ body{background:
 }
 @media (max-width:900px) and (hover:none){
   .feature-card:hover{transform:none;box-shadow:var(--shadow)}
-  .or-team__face:hover{transform:none}
+  .or-team__face:hover:not(.is-active){transform:none}
 }
 
 /* 去掉主页/百科各 section 之间的四格像素装饰条 */

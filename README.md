@@ -8,7 +8,7 @@
 
 ---
 
-静态前端在 `web/`。本地预览：`npm install` 后 `npm start`（`server.mjs`）。
+静态前端在 `web/`。本地预览：`npm install` 后 `npm start` 或（Windows）双击 `run.bat` 启动 `server.mjs`（不自动打开浏览器，终端会打印本机地址）。
 
 ## 可配置模块
 

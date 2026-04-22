@@ -98,16 +98,19 @@ function cacheControlForExt(ext) {
   return "no-cache";
 }
 
+function teamParseErrorEntry(dName) {
+  return {
+    id: dName,
+    name: dName,
+    title: "",
+    bio: dName + "：meta.json解析失败",
+    color: "#6B7280",
+    __sortDir: dName
+  };
+}
+
 async function buildTeamJson() {
   const staffRoot = path.join(webDir, "staff");
-  const teamPath = path.join(staffRoot, "team.json");
-  try {
-    const raw = (await fsp.readFile(teamPath, "utf8")).replace(/^\uFEFF/, "");
-    const arr = JSON.parse(raw);
-    if (Array.isArray(arr)) return JSON.stringify(arr);
-  } catch {
-    // 无 team.json 或解析失败时回退到各目录 meta.json
-  }
   let entries = [];
   try {
     const names = await fsp.readdir(staffRoot, { withFileTypes: true });
@@ -122,19 +125,34 @@ async function buildTeamJson() {
       }
       let meta;
       try {
-        meta = JSON.parse(raw);
+        meta = JSON.parse(raw.replace(/^\uFEFF/, ""));
       } catch {
+        entries.push(teamParseErrorEntry(d.name));
         continue;
       }
-      if (!meta || typeof meta !== "object") continue;
-      meta.id = meta.id || d.name;
+      if (!meta || typeof meta !== "object" || Array.isArray(meta)) {
+        entries.push(teamParseErrorEntry(d.name));
+        continue;
+      }
+      meta.id = d.name;
+      const disp = meta.name != null ? String(meta.name).trim() : "";
+      meta.name = disp || "示例";
       meta.__sortDir = d.name;
       entries.push(meta);
     }
   } catch {
     return "[]";
   }
-  entries.sort((a, b) => String(a.__sortDir || a.id || "").localeCompare(String(b.__sortDir || b.id || ""), "en"));
+  function orderValue(m) {
+    const o = m && m.order;
+    if (typeof o === "number" && Number.isFinite(o)) return o;
+    return 1_000_000;
+  }
+  entries.sort((a, b) => {
+    const d = orderValue(a) - orderValue(b);
+    if (d !== 0) return d;
+    return String(a.__sortDir || a.id || "").localeCompare(String(b.__sortDir || b.id || ""), "en");
+  });
   for (const e of entries) delete e.__sortDir;
   return JSON.stringify(entries);
 }
