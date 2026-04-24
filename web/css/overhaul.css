@@ -548,8 +548,29 @@ section#team.or-team-section{
 }
 
 /* ---------- 事件时间轴 ---------- */
+.events-hero{position:relative;isolation:isolate;padding-bottom:clamp(8px,2vw,24px)}
+.events-hero::before{
+  content:"";
+  position:absolute;left:50%;top:0;transform:translateX(-50%);
+  width:min(100%,920px);height:min(48vh,380px);
+  background:radial-gradient(ellipse 70% 55% at 50% 0%,rgba(99,102,241,.14),rgba(249,115,22,.06),transparent 70%);
+  pointer-events:none;z-index:0;
+}
+.events-hero::after{
+  content:"";
+  position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+  width:min(100%,640px);height:1px;
+  background:linear-gradient(90deg,transparent,rgba(129,140,248,.3),rgba(251,146,60,.2),transparent);
+  pointer-events:none;z-index:0;
+}
+#view-events .events-hero .wiki-hero__inner{position:relative;z-index:1}
 .events-page{max-width:var(--max);margin:0 auto;padding:0 max(var(--gutter),16px) 56px}
-.events-timeline-wrap{margin-top:8px;padding-bottom:24px}
+.events-page__empty{
+  margin:clamp(12px,3vw,28px) auto 0;max-width:min(40em,92vw);
+  text-align:center;font-size:var(--fs-lead);
+  line-height:1.55;color:rgba(186,200,220,.75);
+}
+.events-timeline-wrap{margin-top:clamp(4px,1.2vw,16px);padding-bottom:32px}
 .events-timeline{
   position:relative;
   margin:0;
@@ -622,8 +643,25 @@ section#team.or-team-section{
   border-color:rgba(251,146,60,.2);
 }
 .events-timeline__card:focus-within{
-  border-color:rgba(251,146,60,.35);
-  outline:none;
+  border-color:rgba(251,146,60,.4);
+  outline:2px solid rgba(129,140,248,.4);
+  outline-offset:2px;
+}
+@media (hover:hover) and (prefers-reduced-motion:no-preference){
+  .events-timeline__item .events-timeline__card{transition:background .2s var(--ease-out),border-color .2s var(--ease-out),box-shadow .22s var(--ease-out),transform .22s var(--ease-out)}
+  .events-timeline__item:hover .events-timeline__card{
+    transform:translateY(-1px);
+    box-shadow:0 14px 36px rgba(0,0,0,.32);
+    border-color:rgba(255,255,255,.12);
+    background:rgba(255,255,255,.04);
+  }
+  .events-timeline__item--major:hover .events-timeline__card{
+    border-color:rgba(251,146,60,.3);
+    background:linear-gradient(155deg,rgba(251,146,60,.1),rgba(129,140,248,.08));
+  }
+  .events-timeline__item--minor:hover .events-timeline__card{
+    background:rgba(255,255,255,.03);
+  }
 }
 .events-timeline__date{
   display:block;
@@ -692,18 +730,27 @@ section#team.or-team-section{
 }
 .events-month-heading--year{
   margin-top:4px;
-  padding-top:14px;
+  padding:14px 0 10px 14px;
+  position:relative;
   font-size:clamp(17px,1.9vw,20px);
   font-weight:800;
   letter-spacing:.04em;
   color:rgba(226,232,240,.95);
   border-bottom-color:rgba(255,255,255,.1);
 }
+.events-month-heading--year::before{
+  content:"";
+  position:absolute;left:0;top:.45em;bottom:.4em;
+  width:3px;border-radius:2px;
+  background:linear-gradient(180deg,#a5b4fc 0%,#f97316 100%);
+  opacity:.9;
+}
 .events-month-heading--year:first-child{margin-top:0;padding-top:6px}
 .events-month-heading--month{
   font-size:12px;
   font-weight:700;
   color:rgba(165,180,252,.78);
+  padding-left:2px;
 }
 .events-month-heading--undated{font-size:13px}
 .events-month-block .events-timeline::before{

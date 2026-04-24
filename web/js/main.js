@@ -601,14 +601,7 @@ async function boot() {
         });
       }, delay);
     } else if (route === "events") {
-      var evNodes = document.querySelectorAll("#view-events .reveal");
-      observeReveals(evNodes);
-      var delayEv = prefersReducedMotion ? 0 : 500;
-      window.setTimeout(function () {
-        evNodes.forEach(function (n) {
-          if (!n.classList.contains("is-visible")) n.classList.add("is-visible");
-        });
-      }, delayEv);
+      observeReveals(document.querySelectorAll("#view-events .reveal"));
     }
   });
   initHeroPhoto();

@@ -1113,3 +1113,52 @@ body {
 .admin-ev-item__fields select {
   margin-bottom: 0;
 }
+.admin-ev-datetime {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  margin-top: 0.2rem;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.admin-ev-datetime__date,
+.admin-ev-datetime__time {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.2rem;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.admin-ev-datetime__time {
+  white-space: nowrap;
+}
+.admin-ev-datetime__sep,
+.admin-ev-datetime__time-lab {
+  color: rgba(150, 160, 180, 0.85);
+  font-size: 0.82rem;
+  user-select: none;
+  flex-shrink: 0;
+}
+.admin-ev-datetime__time-lab {
+  margin: 0 0.05rem 0 0;
+}
+.admin-ev-in-y,
+.admin-ev-in-m,
+.admin-ev-in-d,
+.admin-ev-in-hh,
+.admin-ev-in-mm,
+.admin-ev-in-ss {
+  width: 2.1em;
+  min-width: 0;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+  box-sizing: border-box;
+  padding: 0.3rem 0.2rem;
+}
+.admin-ev-in-y {
+  width: 3.2em;
+}

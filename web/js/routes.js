@@ -204,8 +204,7 @@ function renderEventsInto(container, data) {
 
   if (!items.length) {
     var empty = document.createElement("p");
-    empty.className = "wiki-hero__lead";
-    empty.style.marginTop = "1rem";
+    empty.className = "events-page__empty";
     empty.textContent = "暂无事件条目。";
     wrap.appendChild(empty);
     page.appendChild(wrap);

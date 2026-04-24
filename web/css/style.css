@@ -134,6 +134,12 @@ html.is-booting,body.is-booting{overflow:hidden;height:100%}
 .events-toc__year{margin:12px 0 6px;font-size:12px;font-weight:800;letter-spacing:.06em;color:rgba(203,213,225,.92)}
 .events-toc__year:first-child{margin-top:0}
 .wiki-toc__empty{display:block;padding:6px 9px;font-size:12px;color:rgba(148,163,184,.7)}
+.wiki-toc--events{
+  border-color:rgba(99,102,241,.18);
+  background:linear-gradient(160deg,rgba(12,14,20,.95),rgba(8,9,14,.92));
+  box-shadow:0 18px 48px rgba(0,0,0,.5),inset 0 1px 0 rgba(129,140,248,.1);
+}
+.wiki-toc--events .wiki-toc__title{color:rgba(196,210,255,.88)}
 .wiki-section__inner{max-width:var(--max);margin:0 auto}
 .wiki-section--last{padding-bottom:max(28px,env(safe-area-inset-bottom))}
 .section.wiki-section{padding:12px max(var(--gutter),16px)}
@@ -144,7 +150,7 @@ html.is-booting,body.is-booting{overflow:hidden;height:100%}
 .events-month-block{scroll-margin-top:112px}
 .reveal{opacity:0;transform:translateY(18px);filter:blur(8px);transition:opacity .6s var(--ease),transform .65s var(--ease),filter .55s var(--ease);will-change:opacity,transform,filter}
 .reveal.is-visible{opacity:1;transform:none;filter:blur(0)}
-#view-wiki.view--active .reveal,#view-events.view--active .reveal{opacity:1;transform:none;filter:blur(0)}
+#view-wiki.view--active .reveal{opacity:1;transform:none;filter:blur(0)}
 @media (prefers-reduced-motion:reduce){.reveal,.reveal.is-visible{transition-duration:.01ms!important;filter:none!important;transform:none!important;opacity:1!important}}
 .tabs.reveal,.tabs.reveal.is-visible{filter:none;will-change:opacity,transform;transition:opacity .6s var(--ease),transform .65s var(--ease)}
 .tabs.reveal:not(.is-visible){opacity:0;transform:translateY(16px)}

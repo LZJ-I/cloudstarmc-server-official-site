@@ -2091,6 +2091,58 @@ function parseEventDateMsAdmin(s) {
   return Number.isNaN(t) ? 0 : t;
 }
 
+function eventDigits(s, max) {
+  return String(s || "").replace(/\D/g, "").slice(0, max);
+}
+
+function parseEventDateForAdmin(s) {
+  const raw = String(s || "").trim();
+  if (!raw) return { y: "", m: "", d: "", hh: "", mm: "", ss: "" };
+  const m = raw.match(
+    /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/
+  );
+  if (m) {
+    return {
+      y: m[1].slice(0, 4),
+      m: m[2].padStart(2, "0"),
+      d: m[3].padStart(2, "0"),
+      hh: m[4] != null ? m[4].padStart(2, "0") : "",
+      mm: m[5] != null ? m[5].padStart(2, "0") : "",
+      ss: m[6] != null ? m[6].padStart(2, "0") : "",
+    };
+  }
+  const t = Date.parse(raw.length <= 10 ? raw + "T12:00:00" : raw);
+  if (Number.isNaN(t)) return { y: "", m: "", d: "", hh: "", mm: "", ss: "" };
+  const dt = new Date(t);
+  return {
+    y: String(dt.getFullYear()),
+    m: String(dt.getMonth() + 1).padStart(2, "0"),
+    d: String(dt.getDate()).padStart(2, "0"),
+    hh: String(dt.getHours()).padStart(2, "0"),
+    mm: String(dt.getMinutes()).padStart(2, "0"),
+    ss: String(dt.getSeconds()).padStart(2, "0"),
+  };
+}
+
+function composeEventDateString(parts) {
+  const y = eventDigits(parts.y, 4);
+  const mo = eventDigits(parts.m, 2);
+  const da = eventDigits(parts.d, 2);
+  if (y.length !== 4 || !mo || !da) return "";
+  const mo2 = mo.padStart(2, "0");
+  const da2 = da.padStart(2, "0");
+  const base = y + "-" + mo2 + "-" + da2;
+  if (Number.isNaN(Date.parse(base + "T12:00:00"))) return "";
+  const hh = eventDigits(parts.hh, 2);
+  const mm = eventDigits(parts.mm, 2);
+  const ss = eventDigits(parts.ss, 2);
+  if (!hh && !mm && !ss) return base;
+  const h2 = (hh + "0").slice(0, 2);
+  const m2 = (mm + "0").slice(0, 2);
+  const s2 = (ss + "0").slice(0, 2);
+  return base + "T" + h2.padStart(2, "0") + ":" + m2.padStart(2, "0") + ":" + s2.padStart(2, "0");
+}
+
 function sortEventsItemsDesc(items) {
   const arr = items.slice();
   arr.sort((a, b) => {
@@ -2302,7 +2354,7 @@ function setEvNavToEventDomId(domId) {
   rebuildEvNavSelects({ preferMonth: "ym:" + r.ym, preferItem: domId });
 }
 
-function bindEvItemLiveSummary(wrap, dateIn, titleIn, tierSel) {
+function bindEvItemLiveSummary(wrap, dateHost, titleIn, tierSel) {
   const tierTag = wrap.querySelector(".admin-ev-item__tier-tag");
   function upd() {
     if (tierTag && tierSel && "value" in tierSel) {
@@ -2318,7 +2370,10 @@ function bindEvItemLiveSummary(wrap, dateIn, titleIn, tierSel) {
       rebuildEvNavSelects();
     }
   }
-  dateIn.addEventListener("input", upd);
+  if (dateHost) {
+    dateHost.addEventListener("input", upd, true);
+    dateHost.addEventListener("change", upd, true);
+  }
   titleIn.addEventListener("input", upd);
   tierSel.addEventListener("change", upd);
   upd();
@@ -2371,14 +2426,129 @@ function appendEventEditor(item) {
     return child;
   }
 
-  const dateIn = document.createElement("input");
-  dateIn.type = "text";
-  dateIn.className = "admin-ev-in-date";
-  dateIn.placeholder = "YYYY-MM-DD";
-  dateIn.spellcheck = false;
-  dateIn.autocomplete = "off";
-  dateIn.value = d.date;
-  addField("日期", dateIn);
+  const p0 = parseEventDateForAdmin(d.date);
+  const dateRow = document.createElement("div");
+  dateRow.className = "admin-ev-datetime";
+  const mkPart = (cls, v, len, ph) => {
+    const i = document.createElement("input");
+    i.type = "text";
+    i.className = cls;
+    i.setAttribute("inputmode", "numeric");
+    i.setAttribute("autocomplete", "off");
+    i.setAttribute("spellcheck", "false");
+    i.setAttribute("maxlength", String(len));
+    i.setAttribute("size", String(len + 1));
+    i.setAttribute("placeholder", ph);
+    i.value = v;
+    return i;
+  };
+  const yIn = mkPart("admin-ev-in-y", p0.y, 4, "年");
+  const mIn = mkPart("admin-ev-in-m", p0.m, 2, "月");
+  const dIn = mkPart("admin-ev-in-d", p0.d, 2, "日");
+  const tLab = document.createElement("span");
+  tLab.className = "admin-ev-datetime__time-lab";
+  tLab.textContent = "时间(选) ";
+  const hhIn = mkPart("admin-ev-in-hh", p0.hh, 2, "");
+  const mmIn = mkPart("admin-ev-in-mm", p0.mm, 2, "");
+  const ssIn = mkPart("admin-ev-in-ss", p0.ss, 2, "");
+  yIn.setAttribute("aria-label", "年（四位数）");
+  mIn.setAttribute("aria-label", "月");
+  dIn.setAttribute("aria-label", "日");
+  hhIn.setAttribute("aria-label", "时");
+  mmIn.setAttribute("aria-label", "分");
+  ssIn.setAttribute("aria-label", "秒");
+  const dateHidden = document.createElement("input");
+  dateHidden.type = "hidden";
+  dateHidden.className = "admin-ev-in-date";
+  function getParts() {
+    return { y: yIn.value, m: mIn.value, d: dIn.value, hh: hhIn.value, mm: mmIn.value, ss: ssIn.value };
+  }
+  function sync() {
+    dateHidden.value = composeEventDateString(getParts());
+  }
+  const chain = [yIn, mIn, dIn, hhIn, mmIn, ssIn];
+  const lens = [4, 2, 2, 2, 2, 2];
+  function pad2(el) {
+    const v = eventDigits(el.value, 2);
+    if (v.length === 1 && Number(v) > 0) el.value = v.padStart(2, "0");
+  }
+  chain.forEach((el, i) => {
+    const next = chain[i + 1] || null;
+    const prev = i > 0 ? chain[i - 1] : null;
+    const len = lens[i];
+    el.addEventListener("input", () => {
+      const v0 = el.value;
+      const v = eventDigits(v0, len);
+      if (v !== v0) el.value = v;
+      sync();
+      if (v.length >= len && next) {
+        next.focus();
+        if (next.select) next.select();
+      }
+    });
+    el.addEventListener("keydown", (e) => {
+      if (e.key !== "Backspace" || el.value !== "") return;
+      if (prev) {
+        e.preventDefault();
+        prev.focus();
+        if (typeof prev.select === "function") prev.select();
+      }
+    });
+  });
+  [mIn, dIn, hhIn, mmIn, ssIn].forEach((el) => {
+    el.addEventListener("blur", () => {
+      pad2(el);
+      sync();
+    });
+  });
+  yIn.addEventListener("paste", (e) => {
+    e.preventDefault();
+    const text = (e.clipboardData && e.clipboardData.getData("text")) || "";
+    const parsed = parseEventDateForAdmin(text);
+    yIn.value = parsed.y;
+    mIn.value = parsed.m;
+    dIn.value = parsed.d;
+    hhIn.value = parsed.hh;
+    mmIn.value = parsed.mm;
+    ssIn.value = parsed.ss;
+    sync();
+  });
+  sync();
+  const tc1 = document.createElement("span");
+  tc1.className = "admin-ev-datetime__sep";
+  tc1.setAttribute("aria-hidden", "true");
+  tc1.textContent = ":";
+  const tc2 = document.createElement("span");
+  tc2.className = "admin-ev-datetime__sep";
+  tc2.setAttribute("aria-hidden", "true");
+  tc2.textContent = ":";
+  const col1 = document.createElement("span");
+  col1.className = "admin-ev-datetime__sep";
+  col1.setAttribute("aria-hidden", "true");
+  col1.textContent = "-";
+  const col2 = document.createElement("span");
+  col2.className = "admin-ev-datetime__sep";
+  col2.setAttribute("aria-hidden", "true");
+  col2.textContent = "-";
+  const datePart = document.createElement("div");
+  datePart.className = "admin-ev-datetime__date";
+  datePart.appendChild(yIn);
+  datePart.appendChild(col1);
+  datePart.appendChild(mIn);
+  datePart.appendChild(col2);
+  datePart.appendChild(dIn);
+  const timePart = document.createElement("div");
+  timePart.className = "admin-ev-datetime__time";
+  timePart.appendChild(tLab);
+  timePart.appendChild(hhIn);
+  timePart.appendChild(tc1);
+  timePart.appendChild(mmIn);
+  timePart.appendChild(tc2);
+  timePart.appendChild(ssIn);
+  dateRow.appendChild(dateHidden);
+  dateRow.appendChild(datePart);
+  dateRow.appendChild(timePart);
+  addField("日期", dateRow);
 
   const tierSel = document.createElement("select");
   tierSel.className = "admin-ev-in-tier";
@@ -2402,7 +2572,7 @@ function appendEventEditor(item) {
 
   wrap.appendChild(panel);
   evItemsMount.appendChild(wrap);
-  bindEvItemLiveSummary(wrap, dateIn, titleIn, tierSel);
+  bindEvItemLiveSummary(wrap, dateRow, titleIn, tierSel);
 }
 
 function applyEventsDataToForm(data) {
