@@ -1269,8 +1269,7 @@ table.admin-audit-table td {
 .admin-ev-in-m,
 .admin-ev-in-d,
 .admin-ev-in-hh,
-.admin-ev-in-mm,
-.admin-ev-in-ss {
+.admin-ev-in-mm {
   width: 2.1em;
   min-width: 0;
   text-align: center;

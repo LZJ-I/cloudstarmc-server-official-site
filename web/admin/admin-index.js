@@ -91,9 +91,14 @@ const siteBrandLogoInput = document.getElementById("siteBrandLogoInput");
 const siteHeroFloatInput = document.getElementById("siteHeroFloatInput");
 const siteAssetMsg = document.getElementById("siteAssetMsg");
 const mdSource = document.getElementById("mdSource");
-const mdPreview = document.getElementById("mdPreview");
-const tabSource = document.getElementById("tabSource");
-const tabPreview = document.getElementById("tabPreview");
+const wikiReadme = document.getElementById("wikiReadme");
+const wikiReadmePreview = document.getElementById("wikiReadmePreview");
+const tabReadmeSource = document.getElementById("tabReadmeSource");
+const tabReadmePreview = document.getElementById("tabReadmePreview");
+const wikiChaptersMount = document.getElementById("wikiChaptersMount");
+const wikiAddChapter = document.getElementById("wikiAddChapter");
+let wikiChapters = [];
+let wikiDragEl = null;
 const saveBtn = document.getElementById("saveBtn");
 const saveMsg = document.getElementById("saveMsg");
 const btnWikiUploads = document.getElementById("btnWikiUploads");
@@ -2567,7 +2572,8 @@ function normalizeEventsData(raw) {
 function parseEventDateMsAdmin(s) {
   const raw = String(s || "").trim();
   if (!raw) return 0;
-  const t = Date.parse(raw + (raw.length <= 10 ? "T12:00:00" : ""));
+  const forParse = raw.length <= 10 ? raw + "T12:00:00" : raw.replace(/^(\d{4}-\d{2}-\d{2})\s+/, "$1T");
+  const t = Date.parse(forParse);
   return Number.isNaN(t) ? 0 : t;
 }
 
@@ -2577,9 +2583,9 @@ function eventDigits(s, max) {
 
 function parseEventDateForAdmin(s) {
   const raw = String(s || "").trim();
-  if (!raw) return { y: "", m: "", d: "", hh: "", mm: "", ss: "" };
+  if (!raw) return { y: "", m: "", d: "", hh: "", mm: "" };
   const m = raw.match(
-    /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/
+    /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s](\d{1,2}):(\d{1,2})(?::\d{1,2})?)?/
   );
   if (m) {
     return {
@@ -2588,11 +2594,11 @@ function parseEventDateForAdmin(s) {
       d: m[3].padStart(2, "0"),
       hh: m[4] != null ? m[4].padStart(2, "0") : "",
       mm: m[5] != null ? m[5].padStart(2, "0") : "",
-      ss: m[6] != null ? m[6].padStart(2, "0") : "",
     };
   }
-  const t = Date.parse(raw.length <= 10 ? raw + "T12:00:00" : raw);
-  if (Number.isNaN(t)) return { y: "", m: "", d: "", hh: "", mm: "", ss: "" };
+  const forParse = raw.length <= 10 ? raw + "T12:00:00" : raw.replace(/^(\d{4}-\d{2}-\d{2})\s+/, "$1T");
+  const t = Date.parse(forParse);
+  if (Number.isNaN(t)) return { y: "", m: "", d: "", hh: "", mm: "" };
   const dt = new Date(t);
   return {
     y: String(dt.getFullYear()),
@@ -2600,7 +2606,6 @@ function parseEventDateForAdmin(s) {
     d: String(dt.getDate()).padStart(2, "0"),
     hh: String(dt.getHours()).padStart(2, "0"),
     mm: String(dt.getMinutes()).padStart(2, "0"),
-    ss: String(dt.getSeconds()).padStart(2, "0"),
   };
 }
 
@@ -2615,12 +2620,10 @@ function composeEventDateString(parts) {
   if (Number.isNaN(Date.parse(base + "T12:00:00"))) return "";
   const hh = eventDigits(parts.hh, 2);
   const mm = eventDigits(parts.mm, 2);
-  const ss = eventDigits(parts.ss, 2);
-  if (!hh && !mm && !ss) return base;
+  if (!hh && !mm) return base;
   const h2 = (hh + "0").slice(0, 2);
   const m2 = (mm + "0").slice(0, 2);
-  const s2 = (ss + "0").slice(0, 2);
-  return base + "T" + h2.padStart(2, "0") + ":" + m2.padStart(2, "0") + ":" + s2.padStart(2, "0");
+  return base + " " + h2.padStart(2, "0") + ":" + m2.padStart(2, "0");
 }
 
 function sortEventsItemsDesc(items) {
@@ -2930,24 +2933,22 @@ function appendEventEditor(item) {
   tLab.textContent = "时间(选) ";
   const hhIn = mkPart("admin-ev-in-hh", p0.hh, 2, "");
   const mmIn = mkPart("admin-ev-in-mm", p0.mm, 2, "");
-  const ssIn = mkPart("admin-ev-in-ss", p0.ss, 2, "");
   yIn.setAttribute("aria-label", "年（四位数）");
   mIn.setAttribute("aria-label", "月");
   dIn.setAttribute("aria-label", "日");
   hhIn.setAttribute("aria-label", "时");
   mmIn.setAttribute("aria-label", "分");
-  ssIn.setAttribute("aria-label", "秒");
   const dateHidden = document.createElement("input");
   dateHidden.type = "hidden";
   dateHidden.className = "admin-ev-in-date";
   function getParts() {
-    return { y: yIn.value, m: mIn.value, d: dIn.value, hh: hhIn.value, mm: mmIn.value, ss: ssIn.value };
+    return { y: yIn.value, m: mIn.value, d: dIn.value, hh: hhIn.value, mm: mmIn.value };
   }
   function sync() {
     dateHidden.value = composeEventDateString(getParts());
   }
-  const chain = [yIn, mIn, dIn, hhIn, mmIn, ssIn];
-  const lens = [4, 2, 2, 2, 2, 2];
+  const chain = [yIn, mIn, dIn, hhIn, mmIn];
+  const lens = [4, 2, 2, 2, 2];
   function pad2(el) {
     const v = eventDigits(el.value, 2);
     if (v.length === 1 && Number(v) > 0) el.value = v.padStart(2, "0");
@@ -2975,7 +2976,7 @@ function appendEventEditor(item) {
       }
     });
   });
-  [mIn, dIn, hhIn, mmIn, ssIn].forEach((el) => {
+  [mIn, dIn, hhIn, mmIn].forEach((el) => {
     el.addEventListener("blur", () => {
       pad2(el);
       sync();
@@ -2990,7 +2991,6 @@ function appendEventEditor(item) {
     dIn.value = parsed.d;
     hhIn.value = parsed.hh;
     mmIn.value = parsed.mm;
-    ssIn.value = parsed.ss;
     sync();
   });
   sync();
@@ -2998,10 +2998,6 @@ function appendEventEditor(item) {
   tc1.className = "admin-ev-datetime__sep";
   tc1.setAttribute("aria-hidden", "true");
   tc1.textContent = ":";
-  const tc2 = document.createElement("span");
-  tc2.className = "admin-ev-datetime__sep";
-  tc2.setAttribute("aria-hidden", "true");
-  tc2.textContent = ":";
   const col1 = document.createElement("span");
   col1.className = "admin-ev-datetime__sep";
   col1.setAttribute("aria-hidden", "true");
@@ -3023,8 +3019,6 @@ function appendEventEditor(item) {
   timePart.appendChild(hhIn);
   timePart.appendChild(tc1);
   timePart.appendChild(mmIn);
-  timePart.appendChild(tc2);
-  timePart.appendChild(ssIn);
   dateRow.appendChild(dateHidden);
   dateRow.appendChild(datePart);
   dateRow.appendChild(timePart);

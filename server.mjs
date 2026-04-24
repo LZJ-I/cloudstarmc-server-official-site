@@ -4,11 +4,9 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import url from "node:url";
 import express from "express";
-import { marked } from "marked";
 import { createAdminRouter } from "./admin-routes.mjs";
 import { createAuthStore } from "./admin-auth-store.mjs";
-
-marked.setOptions({ gfm: true, breaks: true });
+import { buildWikiPublicJson } from "./wiki-build.mjs";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const webDir = path.join(__dirname, "web");
@@ -17,7 +15,7 @@ const PORT = Number(process.env.PORT || 8080); // port
 const HOST = process.env.HOST || "0.0.0.0";
 
 const SESSION_MAX_MS = 48 * 60 * 60 * 1000;
-const WIKI_MD = path.join(webDir, "wiki", "content.md");
+const WIKI_DIR = path.join(webDir, "wiki");
 const dataDir = path.join(__dirname, "data");
 void fsp.mkdir(dataDir, { recursive: true }).catch(() => {});
 const authStore = createAuthStore({ dataDir });
@@ -36,7 +34,7 @@ adminExpress.use((req, res, next) => {
 adminExpress.use(
   "/api/admin",
     createAdminRouter({
-    wikiMdPath: WIKI_MD,
+    wikiDir: WIKI_DIR,
     webDir,
     featuresJsonPath: path.join(webDir, "features", "features.json"),
     joinGuideJsonPath: path.join(webDir, "join-guide", "join-guide.json"),
@@ -142,19 +140,6 @@ async function buildTeamJson() {
   return JSON.stringify(entries);
 }
 
-function escapeHtmlAttr(s) {
-  return String(s || "")
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/</g, "&lt;");
-}
-
-function safeDomId(id) {
-  const s = String(id || "").trim();
-  if (/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(s)) return s;
-  return "wiki-block";
-}
-
 async function readFeaturesJson() {
   const p = path.join(webDir, "features", "features.json");
   try {
@@ -189,50 +174,11 @@ async function readEventsJson() {
 }
 
 async function buildWikiPageJson() {
-  const wikiDir = path.join(webDir, "wiki");
-  const mdPath = path.join(wikiDir, "content.md");
-  const metaPath = path.join(wikiDir, "meta.json");
-  let nav = [];
   try {
-    const meta = JSON.parse(await fsp.readFile(metaPath, "utf8"));
-    if (meta && Array.isArray(meta.nav)) nav = meta.nav;
-  } catch {}
-  let md = "";
-  try {
-    md = await fsp.readFile(mdPath, "utf8");
+    return await buildWikiPublicJson(webDir);
   } catch {
-    return JSON.stringify({ html: "", nav });
+    return JSON.stringify({ version: 1, pages: [], nav: [], indexLabel: "索引" });
   }
-  const lines = md.replace(/\r\n/g, "\n").split("\n");
-  const h2Starts = [];
-  for (let i = 0; i < lines.length; i++) {
-    const m = /^##\s+(.+)$/.exec(lines[i]);
-    if (m) h2Starts.push({ line: i, title: m[1].trim() });
-  }
-  const heroMd = h2Starts.length ? lines.slice(0, h2Starts[0].line).join("\n").trim() : md.trim();
-  const bodies = [];
-  for (let i = 0; i < h2Starts.length; i++) {
-    const start = h2Starts[i].line + 1;
-    const end = i + 1 < h2Starts.length ? h2Starts[i + 1].line : lines.length;
-    bodies.push(lines.slice(start, end).join("\n").trim());
-  }
-  const heroId = safeDomId(nav[0] && nav[0].id ? nav[0].id : "wiki-top");
-  let html = '<div class="wiki-page">';
-  html += `<section class="section wiki-hero" id="${escapeHtmlAttr(heroId)}"><div class="wiki-hero__inner reveal wiki-md">`;
-  html += marked.parse(heroMd || "");
-  html += "</div></section>";
-  for (let i = 0; i < bodies.length; i++) {
-    const navItem = nav[i + 1];
-    const sid = safeDomId(navItem && navItem.id ? navItem.id : "wiki-s" + i);
-    const alt = i % 2 === 0 ? "section--alt " : "";
-    const last = i === bodies.length - 1 ? " wiki-section--last" : "";
-    const piece = "## " + h2Starts[i].title + "\n\n" + bodies[i];
-    html += `<section class="section ${alt}wiki-section${last}" id="${escapeHtmlAttr(sid)}"><div class="wiki-section__inner reveal wiki-md">`;
-    html += marked.parse(piece);
-    html += "</div></section>";
-  }
-  html += "</div>";
-  return JSON.stringify({ html, nav });
 }
 
 const server = http.createServer(async (req, res) => {

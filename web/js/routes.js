@@ -2,6 +2,8 @@ const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)
 
 var wikiHtmlLoaded = false;
 var wikiNavCache = null;
+var wikiPagesData = null;
+var wikiCurrentSlug = "index";
 var eventsHtmlLoaded = false;
 var eventsTocGroupsCache = null;
 
@@ -9,6 +11,19 @@ function buildWikiTocFromDom() {
   var root = document.getElementById("view-wiki");
   if (!root) return [];
   var items = [];
+  var vis = root.querySelector(".wiki-doc__article:not([hidden])");
+  if (vis) {
+    vis.querySelectorAll("h2, h3").forEach(function (h) {
+      var id = h.id;
+      if (!id) return;
+      items.push({
+        id: id,
+        label: String(h.textContent || "").trim() || id,
+        depth: h.tagName === "H2" ? 2 : 3,
+      });
+    });
+  }
+  if (items.length) return items;
   root.querySelectorAll("section[id^='wiki-']").forEach(function (sec) {
     var id = sec.id;
     if (!id) return;
@@ -18,31 +33,41 @@ function buildWikiTocFromDom() {
     if (h2) label = String(h2.textContent || "").trim();
     else if (h1) label = String(h1.textContent || "").trim();
     if (!label) label = id;
-    items.push({ id: id, label: label });
+    items.push({ id: id, label: label, depth: 2 });
   });
   return items;
 }
 
 function syncWikiToc() {
   var navEl = document.getElementById("wikiTocNav");
-  var panel = document.getElementById("wikiTocPanel");
-  if (!navEl || !panel) return;
+  if (!navEl) return;
   navEl.textContent = "";
   var items = [];
-  if (wikiNavCache && wikiNavCache.length) {
-    wikiNavCache.forEach(function (item) {
-      if (!item || !item.id) return;
-      items.push({ id: item.id, label: item.label || item.id });
-    });
-  } else {
+  if (wikiPagesData && wikiCurrentSlug) {
+    var pages = wikiPagesData.pages || [];
+    for (var pi = 0; pi < pages.length; pi++) {
+      if (pages[pi].slug === wikiCurrentSlug) {
+        items = pages[pi].toc || [];
+        break;
+      }
+    }
+  }
+  if (!items.length) {
     items = buildWikiTocFromDom();
   }
+  if (!items.length) {
+    var empty = document.createElement("span");
+    empty.className = "wiki-toc__empty";
+    empty.textContent = "本页无目录";
+    navEl.appendChild(empty);
+    return;
+  }
   items.forEach(function (item) {
-    if (!item.id) return;
+    if (!item || !item.id) return;
     var a = document.createElement("a");
     a.href = "/wiki#" + item.id;
-    a.className = "wiki-toc__link";
-    a.textContent = item.label;
+    a.className = "wiki-toc__link" + (item.depth === 3 ? " wiki-toc__link--indent" : "");
+    a.textContent = item.label || item.id;
     navEl.appendChild(a);
   });
 }
@@ -107,18 +132,154 @@ function applyWikiSubnav(nav) {
   nav.forEach(function (item) {
     if (!item || !item.id) return;
     var a = document.createElement("a");
-    a.href = "/wiki#" + item.id;
+    var slug = item.slug != null ? String(item.slug) : String(item.id || "").replace(/^wiki-/, "");
+    if (!slug) slug = "index";
+    a.href = "/wiki#" + slug;
     a.className = "nav__sub-link";
     a.textContent = item.label || item.id;
     navWiki.appendChild(a);
   });
 }
 
+function showWikiPage(slug) {
+  if (!wikiPagesData || !wikiPagesData.pages) return;
+  var slug0 = slug || "index";
+  var pages = wikiPagesData.pages;
+  var hit = null;
+  for (var i = 0; i < pages.length; i++) {
+    if (pages[i].slug === slug0) {
+      hit = pages[i];
+      break;
+    }
+  }
+  if (!hit) {
+    hit = pages[0];
+    slug0 = hit ? hit.slug : "index";
+  }
+  var stage = document.getElementById("wikiDocStage");
+  if (!stage) return;
+  stage.querySelectorAll(".wiki-doc__article").forEach(function (art) {
+    var s = art.getAttribute("data-wiki-slug");
+    art.hidden = s !== slug0;
+  });
+  wikiCurrentSlug = slug0;
+  var side = document.getElementById("wikiSidenav");
+  if (side) {
+    side.querySelectorAll("a[href^='/wiki#']").forEach(function (a) {
+      var h = a.getAttribute("href") || "";
+      var x = h.indexOf("#") >= 0 ? h.slice(h.indexOf("#") + 1) : "";
+      var first = x.indexOf("--") >= 0 ? x.slice(0, x.indexOf("--")) : x;
+      a.classList.toggle("is-active", first === wikiCurrentSlug);
+    });
+  }
+  syncWikiToc();
+}
+
+function applyWikiHashAndScroll(full) {
+  var f = String(full || "").replace(/^#/, "");
+  if (!f) f = "index";
+  var pageSlug = "index";
+  var anchorFull = null;
+  if (f.indexOf("--") >= 0) {
+    pageSlug = f.slice(0, f.indexOf("--"));
+    anchorFull = f;
+  } else {
+    pageSlug = f;
+  }
+  showWikiPage(pageSlug);
+  var beh = prefersReducedMotion ? "auto" : "smooth";
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () {
+      if (anchorFull) {
+        var el = document.getElementById(anchorFull);
+        if (el) {
+          var y = el.getBoundingClientRect().top + window.pageYOffset - NAV_SCROLL_OFFSET;
+          window.scrollTo({ top: Math.max(0, y), behavior: beh });
+          return;
+        }
+      }
+      var wrap = document.getElementById("wiki-page-" + pageSlug);
+      if (wrap) {
+        var y2 = wrap.getBoundingClientRect().top + window.pageYOffset - NAV_SCROLL_OFFSET;
+        window.scrollTo({ top: Math.max(0, y2), behavior: beh });
+      } else {
+        window.scrollTo({ top: 0, behavior: beh });
+      }
+    });
+  });
+}
+
+function mountWikiDoc(vw, data) {
+  vw.textContent = "";
+  var root = document.createElement("div");
+  root.className = "wiki-doc";
+  var side = document.createElement("aside");
+  side.className = "wiki-doc__sidenav";
+  side.setAttribute("aria-label", "百科章节");
+  var sk = document.createElement("div");
+  sk.className = "wiki-doc__sidenav-kicker";
+  sk.textContent = "页面";
+  var sideNav = document.createElement("nav");
+  sideNav.className = "wiki-doc__sidenav-list";
+  sideNav.id = "wikiSidenav";
+  var body = document.createElement("div");
+  body.className = "wiki-doc__body";
+  var stage = document.createElement("div");
+  stage.className = "wiki-doc__stage";
+  stage.id = "wikiDocStage";
+  var pages = data.pages || [];
+  pages.forEach(function (p) {
+    if (!p || !p.slug) return;
+    var art = document.createElement("article");
+    art.className = "wiki-doc__article wiki-md reveal";
+    art.id = "wiki-page-" + p.slug;
+    art.setAttribute("data-wiki-slug", p.slug);
+    art.hidden = true;
+    art.innerHTML = p.html != null ? p.html : "";
+    stage.appendChild(art);
+    var a = document.createElement("a");
+    a.className = "wiki-doc__sidenav-link";
+    a.href = "/wiki#" + p.slug;
+    a.textContent = p.label || p.slug;
+    a.setAttribute("data-wiki-slug", p.slug);
+    sideNav.appendChild(a);
+  });
+  side.appendChild(sk);
+  side.appendChild(sideNav);
+  body.appendChild(stage);
+  root.appendChild(side);
+  root.appendChild(body);
+  vw.appendChild(root);
+}
+
 function parseEventDateMs(s) {
   var raw = String(s || "").trim();
   if (!raw) return 0;
-  var t = Date.parse(raw + (raw.length <= 10 ? "T12:00:00" : ""));
+  var forParse = raw.length <= 10 ? raw + "T12:00:00" : raw.replace(/^(\d{4}-\d{2}-\d{2})\s+/, "$1T");
+  var t = Date.parse(forParse);
   return Number.isNaN(t) ? 0 : t;
+}
+
+function eventHasTimePart(raw) {
+  return /[T\s]\d{1,2}:\d{2}/.test(String(raw || "").trim());
+}
+
+function formatEventDateDisplay(s) {
+  var raw = String(s || "").trim();
+  if (!raw) return "—";
+  var ms = parseEventDateMs(s);
+  if (!ms) {
+    return raw.replace(/T/g, " ").replace(/:\d{2}$/, "");
+  }
+  var d = new Date(ms);
+  var y = d.getFullYear();
+  var mo = String(d.getMonth() + 1).padStart(2, "0");
+  var da = String(d.getDate()).padStart(2, "0");
+  var day = y + "-" + mo + "-" + da;
+  if (!eventHasTimePart(raw)) return day;
+  var hh = String(d.getHours()).padStart(2, "0");
+  var mm = String(d.getMinutes()).padStart(2, "0");
+  return day + " " + hh + ":" + mm;
 }
 
 function ymLabelZh(ym) {
@@ -238,8 +399,10 @@ function renderEventsInto(container, data) {
     card.setAttribute("tabindex", "-1");
     var timeEl = document.createElement("time");
     timeEl.className = "events-timeline__date";
-    timeEl.setAttribute("datetime", String(it.date || "").trim());
-    timeEl.textContent = String(it.date || "").trim() || "—";
+    var dateRaw = String(it.date || "").trim();
+    var dateDisp = formatEventDateDisplay(dateRaw);
+    timeEl.setAttribute("datetime", dateDisp === "—" ? "" : dateDisp);
+    timeEl.textContent = dateDisp;
     var titleEl = document.createElement(tier === "major" ? "h2" : "h3");
     titleEl.className = "events-timeline__title";
     titleEl.textContent = it.title != null ? String(it.title) : "";
@@ -315,8 +478,18 @@ export async function ensureWikiMounted() {
     var r = await fetch(apiUrl("/api/wiki"), { cache: "no-store" });
     if (r.ok) {
       var data = await r.json();
+      if (data && data.version === 1 && Array.isArray(data.pages)) {
+        wikiPagesData = data;
+        wikiNavCache = Array.isArray(data.nav) ? data.nav : null;
+        mountWikiDoc(vw, data);
+        refreshHeroFloatImages(vw);
+        applyWikiSubnav(data.nav);
+        wikiHtmlLoaded = true;
+        return;
+      }
       if (data && typeof data.html === "string") {
         wikiNavCache = Array.isArray(data.nav) ? data.nav : null;
+        wikiPagesData = null;
         vw.innerHTML = data.html;
         refreshHeroFloatImages(vw);
         applyWikiSubnav(data.nav);
@@ -330,6 +503,7 @@ export async function ensureWikiMounted() {
   const r2 = await fetch(partialUrl("wiki"));
   if (!r2.ok) throw new Error("wiki");
   wikiNavCache = null;
+  wikiPagesData = null;
   vw.innerHTML = await r2.text();
   refreshHeroFloatImages(vw);
   wikiHtmlLoaded = true;
@@ -453,6 +627,18 @@ export function initRoutes(onViewMounted) {
         .then(function () {
           applyRoute("wiki");
           if (typeof onViewMounted === "function") onViewMounted("wiki");
+          var h = (location.hash || "").replace(/^#/, "");
+          if (wikiPagesData) {
+            applyWikiHashAndScroll(h);
+          } else {
+            if (h) {
+              var t = document.getElementById(h);
+              if (t) {
+                var y = t.getBoundingClientRect().top + window.pageYOffset - NAV_SCROLL_OFFSET;
+                window.scrollTo({ top: Math.max(0, y), behavior: prefersReducedMotion ? "auto" : "smooth" });
+              }
+            }
+          }
           if (typeof done === "function") done();
         })
         .catch(function (e) {
@@ -536,7 +722,11 @@ export function initRoutes(onViewMounted) {
       var id = href.indexOf("#") >= 0 ? href.slice(href.indexOf("#") + 1) : "";
       if (!id) return;
       history.replaceState({ route: "wiki" }, "", "/wiki#" + id);
-      scrollToHash(id);
+      if (wikiPagesData) {
+        applyWikiHashAndScroll(id);
+      } else {
+        scrollToHash(id);
+      }
     });
   }
 
@@ -573,23 +763,57 @@ export function initRoutes(onViewMounted) {
         show("wiki", function () {
           history.pushState({ route: "wiki" }, "", "/wiki#" + id);
           requestAnimationFrame(function () {
-            scrollToHash(id);
+            if (wikiPagesData) {
+              applyWikiHashAndScroll(id);
+            } else {
+              scrollToHash(id);
+            }
           });
         });
         return;
       }
       e.preventDefault();
       history.replaceState({ route: "wiki" }, "", "/wiki#" + id);
-      scrollToHash(id);
+      if (wikiPagesData) {
+        applyWikiHashAndScroll(id);
+      } else {
+        scrollToHash(id);
+      }
     });
   }
+
+  document.addEventListener(
+    "click",
+    function (e) {
+      if (e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) {
+        return;
+      }
+      var a = e.target.closest && e.target.closest("#view-wiki a[href^='/wiki#']");
+      if (!a) return;
+      if (!wikiEl || !wikiEl.classList.contains("view--active")) return;
+      e.preventDefault();
+      var href = a.getAttribute("href") || "";
+      var full = href.indexOf("#") >= 0 ? href.slice(href.indexOf("#") + 1) : "";
+      history.replaceState({ route: "wiki" }, "", "/wiki#" + full);
+      if (wikiPagesData) {
+        applyWikiHashAndScroll(full);
+      } else {
+        scrollToHash(full);
+      }
+    },
+    true
+  );
 
   window.addEventListener("popstate", function () {
     var r = pathnameToRoute();
     show(r, function () {
       if (r === "wiki" && location.hash && location.hash.length > 1) {
         requestAnimationFrame(function () {
-          scrollToHash(location.hash.slice(1));
+          if (wikiPagesData) {
+            applyWikiHashAndScroll(location.hash.slice(1));
+          } else {
+            scrollToHash(location.hash.slice(1));
+          }
         });
       }
       if (r === "events" && location.hash && location.hash.length > 1) {
@@ -613,11 +837,6 @@ export function initRoutes(onViewMounted) {
       history.replaceState({ route: "home" }, "", "/home" + (location.hash || ""));
     } else if (pn !== "/home" && pn !== "/wiki" && pn !== "/events") {
       history.replaceState({ route: initialRoute }, "", pathForRoute(initialRoute) + (location.hash || ""));
-    }
-    if (initialRoute === "wiki" && location.hash && location.hash.length > 1) {
-      requestAnimationFrame(function () {
-        scrollToHash(location.hash.slice(1));
-      });
     }
     if (initialRoute === "events" && location.hash && location.hash.length > 1) {
       requestAnimationFrame(function () {

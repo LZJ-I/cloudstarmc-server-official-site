@@ -59,7 +59,7 @@
 </header>
 <nav class="admin-nav" aria-label="后台模块">
 <ul>
-<li><button type="button" class="outline admin-nav__btn is-active" id="navWiki" data-panel="wiki">百科 Wiki</button></li>
+<li><button type="button" class="outline admin-nav__btn is-active" id="navWiki" data-panel="wiki">百科</button></li>
 <li><button type="button" class="outline admin-nav__btn" id="navFeatures" data-panel="features">特色</button></li>
 <li><button type="button" class="outline admin-nav__btn" id="navJoinGuide" data-panel="joinGuide">加入指南</button></li>
 <li><button type="button" class="outline admin-nav__btn" id="navEvents" data-panel="events">事件</button></li>
@@ -69,22 +69,32 @@
 </ul>
 </nav>
 <article id="panelWiki" class="admin-panel">
-<p class="admin-meta">图片将放在 <code>web/wiki/uploads/</code> 路径下，插入图片需要先在图库中上传。</p>
-<div class="admin-modebar" role="tablist" aria-label="编辑模式">
-<div class="admin-modebar__tabs">
-<button type="button" class="outline admin-seg is-active" role="tab" id="tabSource" aria-selected="true" aria-controls="mdSource">源码</button>
-<button type="button" class="outline admin-seg" role="tab" id="tabPreview" aria-selected="false" aria-controls="mdPreview">审阅</button>
-</div>
+<p class="admin-meta">图片在 <code>web/wiki/uploads/</code>，正文里 <code>![](/wiki/uploads/…)</code> 引用。索引为 <code>README.md</code>，章节在 <code>chapters.json</code>（由本页维护）。</p>
+<div class="admin-modebar" role="toolbar">
 <button type="button" class="outline contrast" id="btnWikiUploads">图库</button>
 </div>
+<h2 class="admin-h2" style="margin-top:0.5rem">索引页（README）</h2>
+<div class="admin-modebar" role="tablist" aria-label="索引编辑模式" style="margin-top:0">
+<div class="admin-modebar__tabs">
+<button type="button" class="outline admin-seg is-active" role="tab" id="tabReadmeSource" aria-selected="true" aria-controls="wikiReadme">源码</button>
+<button type="button" class="outline admin-seg" role="tab" id="tabReadmePreview" aria-selected="false" aria-controls="wikiReadmePreview">审阅</button>
+</div>
+</div>
 <div class="admin-editor-wrap">
-<div id="wikiEditorHost" class="admin-wiki-source">
-<textarea id="mdSource" class="admin-textarea" spellcheck="false" aria-label="Markdown 源码"></textarea>
+<div id="wikiReadmeHost" class="admin-wiki-source">
+<textarea id="wikiReadme" class="admin-textarea" spellcheck="false" aria-label="README Markdown" rows="12"></textarea>
 </div>
-<div id="mdPreview" class="admin-preview wiki-md" role="region" aria-label="Markdown 审阅" tabindex="0" hidden></div>
+<div id="wikiReadmePreview" class="admin-preview wiki-md" role="region" aria-label="README 审阅" tabindex="0" hidden></div>
 </div>
+<div class="admin-wiki-chapters-head">
+<h2 class="admin-h2">章节</h2>
+<button type="button" class="outline secondary" id="wikiAddChapter">+ 添加章节</button>
+</div>
+<p class="admin-muted" style="margin:0 0 0.5rem">拖动 <span class="admin-wiki-drag">⠿</span> 可排序。slug 仅小写英文/数字/短横线，且不可为 <code>index</code>。</p>
+<div id="wikiChaptersMount" class="admin-wiki-chapters"></div>
 <p id="saveMsg" class="admin-msg" role="status" aria-live="polite"></p>
 <button type="button" id="saveBtn">保存</button>
+<textarea id="mdSource" class="admin-textarea" hidden aria-hidden="true" spellcheck="false" autocomplete="off"></textarea>
 </article>
 <article id="panelFeatures" class="admin-panel" hidden>
 <p class="admin-meta">自服务端读取 <code>web/features/features.json</code>，与官网展示一致；切换本页会重新拉取。</p>

@@ -7,6 +7,7 @@ import path from "node:path";
 import { SUPER_ADMIN_USER } from "./admin-auth-store.mjs";
 import { createAuditLog } from "./admin-audit-log.mjs";
 import { getAuditLabel } from "./admin-audit-labels.mjs";
+import { readWikiAdminBundle, saveWikiAdminBundle } from "./wiki-build.mjs";
 
 const WIKI_UPLOAD_IMAGE_RE = /\.(png|jpe?g|gif|webp|svg|avif)$/i;
 
@@ -53,15 +54,17 @@ function sniffImageMime(buf) {
 }
 
 export function createAdminRouter(options) {
-  const { wikiMdPath, featuresJsonPath, joinGuideJsonPath, eventsJsonPath, staffRootPath, webDir, authStore, sessionMaxMs, auditLogPath } = options;
+  const { wikiDir, wikiMdPath, featuresJsonPath, joinGuideJsonPath, eventsJsonPath, staffRootPath, webDir, authStore, sessionMaxMs, auditLogPath } = options;
   const auditLog = createAuditLog(auditLogPath || "");
-  const wikiMdResolved = path.resolve(wikiMdPath);
-  const wikiUploadDir = path.resolve(path.join(path.dirname(wikiMdResolved), "uploads"));
+  const wikiDirResolved = path.resolve(
+    wikiDir || (wikiMdPath ? path.dirname(path.resolve(wikiMdPath)) : path.join(path.resolve(webDir || "."), "wiki"))
+  );
+  const wikiUploadDir = path.join(wikiDirResolved, "uploads");
   const featuresJsonResolved = featuresJsonPath ? path.resolve(featuresJsonPath) : null;
   const joinGuideJsonResolved = joinGuideJsonPath ? path.resolve(joinGuideJsonPath) : null;
   const eventsJsonResolved = eventsJsonPath ? path.resolve(eventsJsonPath) : null;
   const staffRootResolved = staffRootPath ? path.resolve(staffRootPath) : null;
-  const webDirResolved = webDir ? path.resolve(webDir) : path.resolve(path.join(path.dirname(wikiMdResolved), ".."));
+  const webDirResolved = webDir ? path.resolve(webDir) : path.resolve(path.join(wikiDirResolved, ".."));
   void fsp.mkdir(wikiUploadDir, { recursive: true }).catch(() => {});
 
   let sessionSecret = process.env.ADMIN_SESSION_SECRET;
@@ -448,11 +451,8 @@ export function createAdminRouter(options) {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
     try {
-      let content = "";
-      try {
-        content = await fsp.readFile(wikiMdResolved, "utf8");
-      } catch {}
-      return res.json({ content });
+      const bundle = await readWikiAdminBundle(wikiDirResolved);
+      return res.json({ readme: bundle.readme, chapters: bundle.chapters });
     } catch (e) {
       return res.status(500).json({ error: String(e && e.message ? e.message : e) });
     }
@@ -463,14 +463,14 @@ export function createAdminRouter(options) {
     res.setHeader("Cache-Control", "no-store");
     try {
       const body = req.body;
-      if (!body || typeof body.content !== "string") {
-        return res.status(400).json({ error: "missing content" });
+      if (!body || typeof body.readme !== "string" || !Array.isArray(body.chapters)) {
+        return res.status(400).json({ error: "missing readme 或 chapters" });
       }
-      await fsp.mkdir(path.dirname(wikiMdResolved), { recursive: true });
-      await fsp.writeFile(wikiMdResolved, body.content, "utf8");
+      await saveWikiAdminBundle(wikiDirResolved, { readme: body.readme, chapters: body.chapters });
       return res.json({ ok: true });
     } catch (e) {
-      return res.status(500).json({ error: String(e && e.message ? e.message : e) });
+      const msg = String(e && e.message ? e.message : e);
+      return res.status(400).json({ error: msg });
     }
   };
   router.put("/wiki", requireAdmin, jsonWiki, putWiki);

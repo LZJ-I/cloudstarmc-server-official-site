@@ -17,7 +17,7 @@ export function getAuditLabel(method, routePath) {
     return { op: "修改", summary: "修改本账号密码" };
   }
   if (p === "/wiki" && (m === "PUT" || m === "POST")) {
-    return { op: "保存", summary: "保存百科 Wiki" };
+    return { op: "保存", summary: "保存百科" };
   }
   if (p.startsWith("/wiki-uploads/") || p === "/wiki-uploads/item") {
     if (m === "DELETE" && (p === "/wiki-uploads/item" || p.endsWith("/wiki-uploads/item"))) {
