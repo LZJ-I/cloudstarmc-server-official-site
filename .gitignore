@@ -28,7 +28,7 @@ desktop.ini
 
 # IDE
 .idea/
-.vscode/*
-.cursor/*
+.cursor/
+.tools/
 !.vscode/extensions.json
 !.vscode/settings.json
