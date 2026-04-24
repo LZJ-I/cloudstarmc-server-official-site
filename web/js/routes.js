@@ -1,4 +1,5 @@
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+var WIKI_TOP_CATEGORY_ID = "__wiki_top__";
 
 var wikiHtmlLoaded = false;
 var wikiNavCache = null;
@@ -135,9 +136,9 @@ function syncWikiToc() {
   if (!navEl) return;
   navEl.textContent = "";
   var items = [];
+  var pages = (wikiPagesData && wikiPagesData.pages) || [];
   if (wikiPagesData) {
     var curSlug = wikiCurrentSlug || wikiFirstSlug(pages) || "";
-    var pages = wikiPagesData.pages || [];
     for (var pi = 0; pi < pages.length; pi++) {
       if (pages[pi].slug === curSlug) {
         items = pages[pi].toc || [];
@@ -164,7 +165,7 @@ function syncWikiToc() {
   items.forEach(function (item) {
     if (!item || !item.id) return;
     var a = document.createElement("a");
-    a.href = "/wiki#" + item.id;
+    a.href = wikiUrlForFull(item.id);
     a.className = "wiki-toc__link" + (item.depth === 3 ? " wiki-toc__link--indent" : "");
     a.textContent = item.label || item.id;
     navEl.appendChild(a);
@@ -190,6 +191,97 @@ function setEventsTocVisible(on) {
 }
 
 var NAV_SCROLL_OFFSET = 108;
+
+function wikiPathSlugFromLocation() {
+  var p = (location.pathname || "/").replace(/\/+$/, "") || "/";
+  if (p.indexOf("/wiki/") !== 0) {
+    return "";
+  }
+  var rest = p.slice(6);
+  if (!rest || rest.indexOf("/") >= 0) {
+    return "";
+  }
+  try {
+    return decodeURIComponent(rest);
+  } catch (e) {
+    return rest;
+  }
+}
+
+function wikiFullHashFromLocation() {
+  var pathSlug = wikiPathSlugFromLocation();
+  var h = (location.hash || "").replace(/^#/, "");
+  if (!pathSlug) {
+    return h;
+  }
+  if (!h) {
+    return pathSlug;
+  }
+  if (h.indexOf(pathSlug + "--") === 0) {
+    return h;
+  }
+  if (h.indexOf("--") >= 0) {
+    return h;
+  }
+  return pathSlug + "--" + h;
+}
+
+function wikiUrlForFull(full) {
+  var f = String(full || "").replace(/^#/, "");
+  if (!f) {
+    return "/wiki";
+  }
+  var pageSlug;
+  var anchorId = null;
+  if (f.indexOf("--") >= 0) {
+    pageSlug = f.slice(0, f.indexOf("--"));
+    anchorId = f;
+  } else {
+    pageSlug = f;
+  }
+  if (!pageSlug) {
+    return "/wiki";
+  }
+  var path = "/wiki/" + encodeURIComponent(pageSlug);
+  if (anchorId && anchorId !== pageSlug) {
+    return path + "#" + anchorId;
+  }
+  return path;
+}
+
+function wikiParseWikiLinkHref(href) {
+  try {
+    var u = new URL(href, document.baseURI);
+    var ap = (u.pathname || "").replace(/\/+$/, "");
+    if (ap.indexOf("/wiki/") === 0) {
+      var ps = ap.slice(6);
+      if (ps.indexOf("/") >= 0) {
+        return null;
+      }
+      try {
+        ps = decodeURIComponent(ps);
+      } catch (e) {}
+      var h = (u.hash || "").replace(/^#/, "");
+      if (!h) {
+        return ps;
+      }
+      if (h.indexOf(ps + "--") === 0) {
+        return h;
+      }
+      if (h.indexOf("--") >= 0) {
+        return h;
+      }
+      return ps + "--" + h;
+    }
+    if (ap === "/wiki") {
+      return (u.hash || "").replace(/^#/, "");
+    }
+  } catch (e) {}
+  if (typeof href === "string" && href.indexOf("/wiki#") === 0) {
+    return href.slice("/wiki#".length);
+  }
+  return null;
+}
 
 function partialUrl(name) {
   try {
@@ -288,7 +380,7 @@ function applyWikiReadDots() {
   side.querySelectorAll("details.wiki-cat.wiki-cat--unread-agg").forEach(function (d) {
     d.classList.remove("wiki-cat--unread-agg");
   });
-  var links = side.querySelectorAll("a[data-wiki-slug][href^='/wiki#']");
+  var links = side.querySelectorAll("a[data-wiki-slug][href^='/wiki']");
   links.forEach(function (a) {
     var href = a.getAttribute("href") || "";
     if (href.indexOf("--") >= 0) {
@@ -360,11 +452,9 @@ function showWikiPage(slug) {
   wikiCurrentSlug = slug0;
   var side = document.getElementById("wikiSidenav");
   if (side) {
-    side.querySelectorAll("a[href^='/wiki#']").forEach(function (a) {
-      var h = a.getAttribute("href") || "";
-      var x = h.indexOf("#") >= 0 ? h.slice(h.indexOf("#") + 1) : "";
-      var first = x.indexOf("--") >= 0 ? x.slice(0, x.indexOf("--")) : x;
-      a.classList.toggle("is-active", first === wikiCurrentSlug);
+    side.querySelectorAll("a[data-wiki-slug]").forEach(function (a) {
+      var d = a.getAttribute("data-wiki-slug");
+      a.classList.toggle("is-active", d != null && String(d) === String(wikiCurrentSlug));
     });
   }
   if (wikiPageUpdatedAt(hit) > 0) {
@@ -465,12 +555,18 @@ function mountWikiDoc(vw, data) {
   tocRail.className = "wiki-doc__toc-rail";
   tocRail.setAttribute("aria-label", "本页目录");
   var pages = data.pages || [];
+  var WTOP = WIKI_TOP_CATEGORY_ID;
   var catSort = function (a, b) {
     var oa = typeof a.order === "number" && isFinite(a.order) ? a.order : 1e9;
     var ob = typeof b.order === "number" && isFinite(b.order) ? b.order : 1e9;
     if (oa !== ob) return oa - ob;
     return String(a.id || "").localeCompare(String(b.id || ""), "en");
   };
+  var topNav = pages
+    .filter(function (p) {
+      return p && p.slug && p.slug !== "index" && String(p.categoryId) === WTOP;
+    })
+    .sort(catSort);
   pages.forEach(function (p) {
     if (!p || !p.slug) return;
     if (p.slug === "index") {
@@ -486,11 +582,24 @@ function mountWikiDoc(vw, data) {
   });
   var cats = data.categories && data.categories.length ? data.categories.slice().sort(catSort) : null;
   if (data.version === 2 && cats && cats.length) {
+    if (topNav.length) {
+      var topWrap = document.createElement("div");
+      topWrap.className = "wiki-doc__sidenav-top";
+      topNav.forEach(function (p) {
+        var at = document.createElement("a");
+        at.className = "wiki-doc__sidenav-link wiki-doc__sidenav-link--top";
+        at.href = "/wiki/" + encodeURIComponent(p.slug);
+        at.textContent = p.label != null ? String(p.label) : p.slug;
+        at.setAttribute("data-wiki-slug", p.slug);
+        topWrap.appendChild(at);
+      });
+      sideNav.appendChild(topWrap);
+    }
     cats.forEach(function (cat) {
       if (!cat || !cat.id) return;
       var det = document.createElement("details");
       det.className = "wiki-cat";
-      if (cat.defaultOpen !== false) det.setAttribute("open", "");
+      if (cat.defaultOpen === true) det.setAttribute("open", "");
       var sum = document.createElement("summary");
       sum.className = "wiki-cat__summary";
       var sumLab = document.createElement("span");
@@ -501,13 +610,19 @@ function mountWikiDoc(vw, data) {
       inner.className = "wiki-cat__list";
       var sub = pages
         .filter(function (p) {
-          return p && p.slug && p.slug !== "index" && p.categoryId === cat.id;
+          if (!p || !p.slug || p.slug === "index") {
+            return false;
+          }
+          if (p.slug === "about" || String(p.categoryId) === WTOP) {
+            return false;
+          }
+          return p.categoryId === cat.id;
         })
         .sort(catSort);
       sub.forEach(function (p) {
         var a = document.createElement("a");
         a.className = "wiki-doc__sidenav-link wiki-doc__sidenav-link--sub";
-        a.href = "/wiki#" + p.slug;
+        a.href = "/wiki/" + encodeURIComponent(p.slug);
         a.textContent = p.label != null ? String(p.label) : p.slug;
         a.setAttribute("data-wiki-slug", p.slug);
         inner.appendChild(a);
@@ -517,11 +632,20 @@ function mountWikiDoc(vw, data) {
       sideNav.appendChild(det);
     });
   } else {
+    topNav.forEach(function (p) {
+      var at = document.createElement("a");
+      at.className = "wiki-doc__sidenav-link wiki-doc__sidenav-link--top";
+      at.href = "/wiki/" + encodeURIComponent(p.slug);
+      at.textContent = p.label != null ? String(p.label) : p.slug;
+      at.setAttribute("data-wiki-slug", p.slug);
+      sideNav.appendChild(at);
+    });
     pages.forEach(function (p) {
       if (!p || !p.slug || p.slug === "index") return;
+      if (String(p.categoryId) === WTOP) return;
       var a = document.createElement("a");
       a.className = "wiki-doc__sidenav-link";
-      a.href = "/wiki#" + p.slug;
+      a.href = "/wiki/" + encodeURIComponent(p.slug);
       a.textContent = p.label != null ? String(p.label) : p.slug;
       a.setAttribute("data-wiki-slug", p.slug);
       sideNav.appendChild(a);
@@ -934,7 +1058,7 @@ export function initRoutes(onViewMounted) {
         .then(function () {
           applyRoute("wiki");
           if (typeof onViewMounted === "function") onViewMounted("wiki");
-          var h = (location.hash || "").replace(/^#/, "");
+          var h = wikiFullHashFromLocation();
           if (wikiPagesData) {
             applyWikiHashAndScroll(h);
             scheduleSyncWikiFixedRail();
@@ -1017,26 +1141,34 @@ export function initRoutes(onViewMounted) {
 
   function pathnameToRoute() {
     var p = (location.pathname || "/").replace(/\/+$/, "") || "/";
-    if (p === "/wiki") return "wiki";
-    if (p === "/events") return "events";
+    if (p === "/wiki" || /^\/wiki\/[^/]+$/.test(p)) {
+      return "wiki";
+    }
+    if (p === "/events") {
+      return "events";
+    }
     return "home";
   }
 
   var wikiTocPanel = document.getElementById("wikiTocPanel");
   if (wikiTocPanel) {
     wikiTocPanel.addEventListener("click", function (e) {
-      var a = e.target.closest && e.target.closest("a[href^='/wiki#']");
+      var a =
+        e.target.closest &&
+        (e.target.closest("a[href^='/wiki/']") || e.target.closest("a[href^='/wiki#']"));
       if (!a) return;
       if (!wikiEl.classList.contains("view--active")) return;
       e.preventDefault();
-      var href = a.getAttribute("href") || "";
-      var id = href.indexOf("#") >= 0 ? href.slice(href.indexOf("#") + 1) : "";
-      if (!id) return;
-      history.replaceState({ route: "wiki" }, "", "/wiki#" + id);
+      var full = wikiParseWikiLinkHref(a.getAttribute("href") || "");
+      if (full == null || full === "") {
+        return;
+      }
+      history.replaceState({ route: "wiki" }, "", wikiUrlForFull(full));
       if (wikiPagesData) {
-        applyWikiHashAndScroll(id);
+        applyWikiHashAndScroll(full);
+        scheduleSyncWikiFixedRail();
       } else {
-        scrollToHash(id);
+        scrollToHash(full);
       }
     });
   }
@@ -1067,34 +1199,35 @@ export function initRoutes(onViewMounted) {
       var a = e.target.closest("a[href]");
       if (!a) return;
       var href = a.getAttribute("href") || "";
-      var id = null;
-      if (href.indexOf("/wiki#") === 0) {
-        id = href.slice("/wiki#".length);
-      } else if (href.charAt(0) === "#") {
-        id = href.slice(1);
+      if (href.indexOf("/wiki") !== 0) {
+        return;
       }
-      if (!id) return;
-
+      e.preventDefault();
+      var full = wikiParseWikiLinkHref(href);
+      if (full === null) {
+        return;
+      }
+      var url = wikiUrlForFull(String(full));
       if (homeEl.classList.contains("view--active")) {
-        e.preventDefault();
         show("wiki", function () {
-          history.pushState({ route: "wiki" }, "", "/wiki#" + id);
+          history.pushState({ route: "wiki" }, "", url);
           requestAnimationFrame(function () {
             if (wikiPagesData) {
-              applyWikiHashAndScroll(id);
+              applyWikiHashAndScroll(wikiFullHashFromLocation());
             } else {
-              scrollToHash(id);
+              scrollToHash(wikiFullHashFromLocation());
             }
+            scheduleSyncWikiFixedRail();
           });
         });
         return;
       }
-      e.preventDefault();
-      history.replaceState({ route: "wiki" }, "", "/wiki#" + id);
+      history.replaceState({ route: "wiki" }, "", url);
       if (wikiPagesData) {
-        applyWikiHashAndScroll(id);
+        applyWikiHashAndScroll(wikiFullHashFromLocation());
+        scheduleSyncWikiFixedRail();
       } else {
-        scrollToHash(id);
+        scrollToHash(wikiFullHashFromLocation());
       }
     });
   }
@@ -1105,19 +1238,24 @@ export function initRoutes(onViewMounted) {
       if (e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) {
         return;
       }
-      var a = e.target.closest && e.target.closest("#view-wiki a[href^='/wiki#']");
+      var a =
+        e.target.closest &&
+        (e.target.closest("#view-wiki a[href^='/wiki/']") ||
+          e.target.closest("#view-wiki a[href^='/wiki#']"));
       if (!a) return;
       if (!wikiEl || !wikiEl.classList.contains("view--active")) return;
       e.preventDefault();
-      var href = a.getAttribute("href") || "";
-      var full = href.indexOf("#") >= 0 ? href.slice(href.indexOf("#") + 1) : "";
-      history.replaceState({ route: "wiki" }, "", "/wiki#" + full);
+      var full = wikiParseWikiLinkHref(a.getAttribute("href") || "");
+      if (full == null) {
+        return;
+      }
+      history.replaceState({ route: "wiki" }, "", wikiUrlForFull(String(full)));
       if (wikiPagesData) {
         var fromSide = a.closest && a.closest("#wikiSidenav");
-        applyWikiHashAndScroll(full, fromSide ? { fromSidenav: true } : undefined);
+        applyWikiHashAndScroll(String(full), fromSide ? { fromSidenav: true } : undefined);
         scheduleSyncWikiFixedRail();
       } else {
-        scrollToHash(full);
+        scrollToHash(String(full));
       }
     },
     true
@@ -1126,13 +1264,14 @@ export function initRoutes(onViewMounted) {
   window.addEventListener("popstate", function () {
     var r = pathnameToRoute();
     show(r, function () {
-      if (r === "wiki" && location.hash && location.hash.length > 1) {
+      if (r === "wiki") {
         requestAnimationFrame(function () {
+          var wfull = wikiFullHashFromLocation();
           if (wikiPagesData) {
-            applyWikiHashAndScroll(location.hash.slice(1));
+            applyWikiHashAndScroll(wfull);
             scheduleSyncWikiFixedRail();
           } else {
-            scrollToHash(location.hash.slice(1));
+            scrollToHash(wfull);
           }
         });
       }
@@ -1155,7 +1294,12 @@ export function initRoutes(onViewMounted) {
     var pn = (location.pathname || "/").replace(/\/+$/, "") || "/";
     if (pn === "/" || pn === "") {
       history.replaceState({ route: "home" }, "", "/home" + (location.hash || ""));
-    } else if (pn !== "/home" && pn !== "/wiki" && pn !== "/events") {
+    } else if (pn === "/wiki" && location.hash && location.hash.length > 1) {
+      var nu = wikiUrlForFull(location.hash.replace(/^#/, ""));
+      if (location.pathname + location.hash !== nu) {
+        history.replaceState({ route: "wiki" }, "", nu);
+      }
+    } else if (pn !== "/home" && pn !== "/wiki" && !/^\/wiki\//.test(pn) && pn !== "/events") {
       history.replaceState({ route: initialRoute }, "", pathForRoute(initialRoute) + (location.hash || ""));
     }
     if (initialRoute === "events" && location.hash && location.hash.length > 1) {

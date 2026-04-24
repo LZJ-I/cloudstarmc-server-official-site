@@ -5,6 +5,8 @@ import { marked } from "marked";
 marked.setOptions({ gfm: true, breaks: true });
 
 const SLUG_RE = /^[a-z0-9][a-z0-9_-]*$/;
+/** 与前端一致：不属任何可编辑分类的顶层页（目前仅 about） */
+export const WIKI_TOP_CATEGORY_ID = "__wiki_top__";
 
 export function isValidChapterSlug(s) {
   return typeof s === "string" && SLUG_RE.test(s) && s.length <= 64;
@@ -96,11 +98,19 @@ function normalizeTocState(raw) {
   let pages = Array.isArray(j.pages) ? j.pages.filter((x) => x && typeof x === "object") : [];
   let categories = Array.isArray(j.categories) ? j.categories.filter((x) => x && typeof x === "object") : [];
   if (categories.length === 0) {
-    categories = [{ id: "cat-default", label: "文档", order: 0, defaultOpen: true }];
+    categories = [{ id: "cat-default", label: "文档", order: 0, defaultOpen: false }];
   }
   const catIds = new Set(categories.map((c) => String(c.id || "")));
   const firstId = String(categories[0].id || "cat-default");
+  const TOP = WIKI_TOP_CATEGORY_ID;
   pages = pages.map((p) => {
+    const sl = p.slug != null ? String(p.slug) : "";
+    if (sl === "about") {
+      return { ...p, categoryId: TOP };
+    }
+    if (String(p.categoryId || "") === TOP && sl !== "about") {
+      return { ...p, categoryId: firstId };
+    }
     const cid = p.categoryId != null && catIds.has(String(p.categoryId)) ? String(p.categoryId) : firstId;
     return { ...p, categoryId: cid };
   });
@@ -270,7 +280,11 @@ export async function buildWikiPublicJson(webDir) {
   await migrateLegacyWikiIfNeeded(wikiDir);
   await migrateChaptersToPageFiles(wikiDir);
   const tocState = await readWikiTocData(wikiDir);
-  const list = sortByOrder(tocState.pages);
+  const listRaw = sortByOrder(tocState.pages);
+  const topId = WIKI_TOP_CATEGORY_ID;
+  const list = listRaw
+    .filter((p) => p && String(p.categoryId) === topId)
+    .concat(listRaw.filter((p) => !p || String(p.categoryId) !== topId));
   const pages = [];
   for (const p of list) {
     if (!p || !p.slug) continue;
@@ -303,7 +317,7 @@ export async function buildWikiPublicJson(webDir) {
     id: String(c.id || ""),
     label: c.label != null ? String(c.label) : "",
     order: typeof c.order === "number" && Number.isFinite(c.order) ? c.order : 0,
-    defaultOpen: c.defaultOpen !== false,
+    defaultOpen: c && c.defaultOpen === true,
   }));
   return JSON.stringify({
     version: 2,
@@ -338,14 +352,14 @@ export async function readWikiAdminBundle(wikiDir) {
     id: String(c.id || ""),
     label: c.label != null ? String(c.label) : "",
     order: typeof c.order === "number" && Number.isFinite(c.order) ? c.order : 0,
-    defaultOpen: c.defaultOpen !== false,
+    defaultOpen: c && c.defaultOpen === true,
   }));
   return { readme, pages: outPages, categories };
 }
 
 function normalizeCategoriesForSave(categories) {
   if (!Array.isArray(categories) || !categories.length) {
-    return [{ id: "cat-default", label: "文档", order: 0, defaultOpen: true }];
+    return [{ id: "cat-default", label: "文档", order: 0, defaultOpen: false }];
   }
   const used = new Set();
   const out = [];
@@ -367,14 +381,15 @@ function normalizeCategoriesForSave(categories) {
       id,
       label: c.label != null ? String(c.label) : "分类",
       order: i,
-      defaultOpen: c.defaultOpen !== false,
+      defaultOpen: c && c.defaultOpen === true,
     });
   }
-  return out.length ? out : [{ id: "cat-default", label: "文档", order: 0, defaultOpen: true }];
+  return out.length ? out : [{ id: "cat-default", label: "文档", order: 0, defaultOpen: false }];
 }
 
 function normalizePagesForSave(pages, categoryMeta) {
   if (!Array.isArray(pages)) throw new Error("pages 须为数组");
+  const TOP = WIKI_TOP_CATEGORY_ID;
   const catIds = new Set(categoryMeta.map((c) => c.id));
   const firstCat = categoryMeta[0] && categoryMeta[0].id;
   const byCat = new Map();
@@ -397,6 +412,22 @@ function normalizePagesForSave(pages, categoryMeta) {
     slugs.add(slug);
     if (!isValidChapterSlug(slug)) throw new Error("无效 slug: " + slug);
     let cid = String(c.categoryId || "").trim();
+    if (slug === "about" || cid === TOP) {
+      if (slug !== "about") {
+        cid = firstCat;
+      } else {
+        cid = TOP;
+        raw.push({
+          id: String(c.id || "p-" + i + "-" + Date.now().toString(36)),
+          title: c.title != null ? String(c.title) : "",
+          slug,
+          content: c.content != null ? String(c.content) : "",
+          categoryId: TOP,
+          inOrder: typeof c.order === "number" && Number.isFinite(c.order) ? c.order : i * 0.001,
+        });
+        continue;
+      }
+    }
     if (!cid || !catIds.has(cid)) cid = firstCat;
     raw.push({
       id: String(c.id || "p-" + i + "-" + Date.now().toString(36)),
@@ -415,6 +446,17 @@ function normalizePagesForSave(pages, categoryMeta) {
     arr.sort((a, b) => a.inOrder - b.inOrder);
   }
   const out = [];
+  const topArr = byCat.get(TOP) || [];
+  topArr.forEach((p, j) => {
+    out.push({
+      id: p.id,
+      title: p.title,
+      slug: p.slug,
+      content: p.content,
+      categoryId: TOP,
+      order: j,
+    });
+  });
   for (const c of categoryMeta) {
     const arr = byCat.get(c.id) || [];
     arr.forEach((p, j) => {

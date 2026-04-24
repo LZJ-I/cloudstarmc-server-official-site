@@ -73,6 +73,7 @@
 <div class="admin-modebar" role="toolbar">
 <div class="admin-modebar__tabs">
 <button type="button" class="outline contrast" id="btnWikiUploads">图库</button>
+<button type="button" class="outline secondary" id="wikiReloadBtn">从服务端重新加载</button>
 </div>
 <div class="admin-modebar__end">
 <p id="saveMsg" class="admin-msg" role="status" aria-live="polite"></p>
@@ -85,8 +86,6 @@
 </aside>
 <div class="admin-ev-main">
 <div class="admin-ev-toolbar" id="wikiToolbar" role="toolbar">
-<span class="admin-ev-toolbar__label">选择</span>
-<select id="wikiNavPage" aria-label="选择页面" class="admin-wiki-nav-select"></select>
 <button type="button" class="outline secondary" id="wikiAddCategory">+ 分类</button>
 <button type="button" class="outline secondary" id="wikiAddPage">+ 页面</button>
 </div>
@@ -94,7 +93,7 @@
 <div class="admin-wiki-cat-bar">
 <label for="wikiCategoryLabel" class="admin-wiki-cat-lab">分类标题</label>
 <input type="text" id="wikiCategoryLabel" class="admin-wiki-cat-in" placeholder="如 🚀 安装部署" autocomplete="off" spellcheck="false" aria-label="分类标题"/>
-<label class="admin-wiki-cat-cb"><input type="checkbox" id="wikiCategoryOpen" checked/> 默认展开</label>
+<label class="admin-wiki-cat-cb"><input type="checkbox" id="wikiCategoryOpen"/> 默认展开</label>
 <span class="admin-wiki-cat-acts">
 <button type="button" class="outline secondary" id="wikiCategoryUp" title="分类上移">↑</button>
 <button type="button" class="outline secondary" id="wikiCategoryDown" title="分类下移">↓</button>

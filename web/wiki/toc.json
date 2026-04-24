@@ -5,13 +5,13 @@
       "id": "cat-basics",
       "label": "入门",
       "order": 0,
-      "defaultOpen": true
+      "defaultOpen": false
     },
     {
       "id": "cat-dev",
       "label": "开发",
       "order": 1,
-      "defaultOpen": true
+      "defaultOpen": false
     },
     {
       "id": "cat-layout",
@@ -22,9 +22,16 @@
   ],
   "pages": [
     {
+      "id": "p-about",
+      "title": "",
+      "slug": "about",
+      "order": 0,
+      "categoryId": "__wiki_top__"
+    },
+    {
       "id": "p-01",
       "title": "",
-      "slug": "markdown-cheatsheet",
+      "slug": "markdown",
       "order": 0,
       "categoryId": "cat-basics"
     },

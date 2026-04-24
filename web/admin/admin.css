@@ -1127,6 +1127,22 @@ table.admin-audit-table td {
   font-weight: 600;
   opacity: 0.95;
 }
+.admin-wiki-browse-pinned {
+  margin-bottom: 0.35rem;
+}
+.admin-wiki-browse-toppage {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  min-width: 0;
+  width: 100%;
+  padding-left: 1.2rem;
+  box-sizing: border-box;
+}
+.admin-wiki-browse-toppage .admin-wiki-browse-sub {
+  flex: 1 1 0;
+  min-width: 0;
+}
 .admin-wiki-browse-group {
   display: flex;
   flex-direction: column;

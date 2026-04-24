@@ -844,6 +844,18 @@ section#team.or-team-section{
   color:rgba(165,180,252,.8);
   margin:0 0 10px 2px;
 }
+.wiki-doc__sidenav-top{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  margin:0 0 12px 0;
+  flex:0 0 auto;
+  width:100%;
+  min-width:0;
+}
+.wiki-doc__sidenav-link--top{
+  font-weight:600;
+}
 .wiki-toc.wiki-toc--inline{
   position:static;
   right:auto;
@@ -1089,6 +1101,7 @@ section#team.or-team-section{
   .wiki-doc__body{
     max-width:100%;
   }
-  .wiki-doc__sidenav-list{flex-direction:row;flex-wrap:wrap;gap:6px}
+  .wiki-doc__sidenav-list{flex-direction:row;flex-wrap:wrap;gap:6px;align-items:flex-start}
+  .wiki-doc__sidenav-top{flex:1 0 100%;max-width:100%;margin-bottom:10px}
   .wiki-doc__sidenav-link{padding:6px 10px;font-size:15.5px}
 }
