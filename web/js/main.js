@@ -484,17 +484,40 @@ function initFooterPiston() {
   var el = document.getElementById("footerPiston");
   if (!el) return;
   var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var PHASE_MS = 220;
+  var SCROLL_AFTER_HEAD_MS = 200;
+  var busy = false;
   function goTop() {
     window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
   }
-  el.addEventListener("click", function (e) {
+  function runStrokeThen(fn) {
+    if (busy) return;
+    busy = true;
+    el.classList.add("piston--acting", "piston--stroke");
+    window.setTimeout(function () {
+      el.classList.remove("piston--stroke");
+      window.setTimeout(function () {
+        busy = false;
+        fn();
+        el.classList.remove("piston--acting");
+        if (document.activeElement === el) {
+          el.blur();
+        }
+      }, SCROLL_AFTER_HEAD_MS);
+    }, PHASE_MS);
+  }
+  function onActivate(e) {
     e.preventDefault();
-    goTop();
-  });
+    if (reduced) {
+      goTop();
+      return;
+    }
+    runStrokeThen(goTop);
+  }
+  el.addEventListener("click", onActivate);
   el.addEventListener("keydown", function (e) {
     if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      goTop();
+      onActivate(e);
     }
   });
 }

@@ -297,66 +297,94 @@ html{scroll-padding-top:112px}
 .join-guide__card:hover{transform:translateY(-2px);border-color:rgba(251,146,60,.22);box-shadow:0 28px 56px rgba(0,0,0,.48),0 0 0 1px rgba(251,146,60,.1)}
 .join-guide__cta-row .btn--primary{box-shadow:0 12px 32px rgba(234,88,12,.28)}
 
-.footer{padding:36px clamp(16px,4vw,28px) max(36px,env(safe-area-inset-bottom,0px));overflow:visible}
+.footer{padding:36px clamp(16px,4vw,28px) max(36px, env(safe-area-inset-bottom, 0px));overflow:visible}
 .footer__inner{font-size:var(--fs-compact);position:relative;overflow:visible}
 .footer__row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 16px;flex:1;min-width:0}
 .footer__links{display:flex;flex-wrap:wrap;align-items:center;gap:14px 18px}
-.footer .piston{display:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;outline:none}
-@media (min-width:768px){
-  .footer__inner{align-items:flex-end}
-  .footer__row{margin-left:140px}
-  .footer .piston{
-    display:block;
-    position:absolute;
-    left:35px;
-    bottom:0;
-    z-index:10;
-    cursor:pointer;
-    width:100px
-  }
-  .footer .piston:focus-visible{box-shadow:0 0 0 2px rgba(253,230,138,.45);border-radius:4px}
-  .footer .piston .head{
-    position:absolute;
-    left:0;
-    right:0;
-    top:-63px;
-    transition:.2s all ease-in-out
-  }
-  .footer .piston .top{
-    background:url(https://assets.originrealms.com/static/store/piston-head.png) center center no-repeat;
-    background-size:contain;
-    width:100px;
-    position:relative;
-    height:76px;
-    top:0;
-    z-index:10
-  }
-  .footer .piston .neck{
-    background:url(https://assets.originrealms.com/static/store/piston-neck.png) center top no-repeat;
-    background-size:28px auto;
-    width:28px;
-    margin:0 auto;
-    height:23px;
-    position:absolute;
-    top:65px;
-    left:0;
-    right:0;
-    z-index:-1;
-    transition:height .2s ease-in-out
-  }
-  .footer .piston .base{
-    background:url(https://assets.originrealms.com/static/store/piston-base.png) center top no-repeat;
-    background-size:100%;
-    width:100px;
-    height:54px
-  }
-  .footer .piston:hover .head{top:-27px}
-  .footer .piston:hover .neck{height:0}
+.or-team-piston{
+  position:relative;
+  z-index:2;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:10px;
+  width:100%;
+  max-width:var(--max);
+  margin:clamp(20px, 3.5vw, 36px) auto 0;
+  padding:68px 0 8px;
+  box-sizing:border-box;
+  overflow:visible
 }
-@media (min-width:768px) and (prefers-reduced-motion:reduce){
-  .footer .piston .head,.footer .piston .neck{transition:none}
-  .footer .piston:hover .head{top:-63px}
-  .footer .piston:hover .neck{height:23px}
+.or-team-piston__caption{
+  margin:0;
+  font-size:var(--fs-hint);
+  line-height:1.4;
+  color:rgba(226,232,240,.62);
+  text-align:center;
+  text-wrap:balance;
+  max-width:280px
+}
+.or-team-piston .piston{
+  display:block;
+  position:relative;
+  isolation:isolate;
+  cursor:pointer;
+  width:100px;
+  margin:0 auto;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+  outline:none
+}
+.or-team-piston .piston:focus-visible{box-shadow:0 0 0 2px rgba(253,230,138,.45);border-radius:8px}
+.or-team-piston .piston .head{
+  position:absolute;
+  left:0;
+  right:0;
+  top:-63px;
+  transition:.2s all ease-in-out
+}
+.or-team-piston .piston .top{
+  background:url(/img/piston/head.png) center center no-repeat;
+  background-size:contain;
+  width:100px;
+  position:relative;
+  height:76px;
+  top:0;
+  z-index:10
+}
+.or-team-piston .piston .neck{
+  background:url(/img/piston/neck.png) center top no-repeat;
+  background-size:28px auto;
+  width:28px;
+  margin:0 auto;
+  height:23px;
+  position:absolute;
+  top:65px;
+  left:0;
+  right:0;
+  z-index:0;
+  transition:height .2s ease-in-out
+}
+.or-team-piston .piston .base{
+  background:url(/img/piston/base.png) center top no-repeat;
+  background-size:100%;
+  width:100px;
+  height:54px
+}
+.or-team-piston .piston.piston--stroke .head{top:-27px}
+.or-team-piston .piston.piston--stroke .neck{height:0}
+@media (hover: hover){
+  .or-team-piston .piston:not(.piston--acting):hover .head{top:-27px}
+  .or-team-piston .piston:not(.piston--acting):hover .neck{height:0}
+}
+@media (prefers-reduced-motion:reduce){
+  .or-team-piston .piston .head,.or-team-piston .piston .neck{transition:none}
+  .or-team-piston .piston.piston--stroke .head{top:-63px}
+  .or-team-piston .piston.piston--stroke .neck{height:23px}
+}
+@media (hover: hover) and (prefers-reduced-motion: reduce){
+  .or-team-piston .piston:not(.piston--acting):hover .head{top:-63px}
+  .or-team-piston .piston:not(.piston--acting):hover .neck{height:23px}
 }
 
 /* ============================================================
@@ -447,11 +475,13 @@ html{scroll-padding-top:112px}
   .or-team__icon-btn{width:40px;height:40px}
   .or-team__face{width:44px;height:44px;border-radius:10px}
 
+  #view-home.view--active{overflow:visible}
+
   .join-guide{padding:48px 16px}
   .join-guide__head h2{font-size:var(--fs-section)}
   .join-guide__card:hover{transform:none}
 
-  .footer{padding:28px 16px max(28px,env(safe-area-inset-bottom,0px))}
+  .footer{padding:28px 16px max(28px, env(safe-area-inset-bottom, 0px))}
   .footer__inner{flex-direction:column;align-items:flex-start;gap:8px;font-size:var(--fs-compact)}
   .footer__row{margin-left:0!important;flex-direction:column;align-items:flex-start;width:100%}
   .footer__links{gap:10px 14px}
