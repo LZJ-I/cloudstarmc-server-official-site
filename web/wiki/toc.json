@@ -1,0 +1,67 @@
+{
+  "version": 2,
+  "categories": [
+    {
+      "id": "cat-basics",
+      "label": "入门",
+      "order": 0,
+      "defaultOpen": true
+    },
+    {
+      "id": "cat-dev",
+      "label": "开发",
+      "order": 1,
+      "defaultOpen": true
+    },
+    {
+      "id": "cat-layout",
+      "label": "排版与示例",
+      "order": 2,
+      "defaultOpen": false
+    }
+  ],
+  "pages": [
+    {
+      "id": "p-01",
+      "title": "",
+      "slug": "markdown-cheatsheet",
+      "order": 0,
+      "categoryId": "cat-basics"
+    },
+    {
+      "id": "p-02",
+      "title": "",
+      "slug": "what-is-md",
+      "order": 1,
+      "categoryId": "cat-basics"
+    },
+    {
+      "id": "p-03",
+      "title": "",
+      "slug": "git-basics",
+      "order": 0,
+      "categoryId": "cat-dev"
+    },
+    {
+      "id": "p-04",
+      "title": "",
+      "slug": "shell-notes",
+      "order": 1,
+      "categoryId": "cat-dev"
+    },
+    {
+      "id": "p-05",
+      "title": "",
+      "slug": "gfm-tables",
+      "order": 0,
+      "categoryId": "cat-layout"
+    },
+    {
+      "id": "p-06",
+      "title": "",
+      "slug": "mixed-content",
+      "order": 1,
+      "categoryId": "cat-layout"
+    }
+  ]
+}

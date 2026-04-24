@@ -452,7 +452,7 @@ export function createAdminRouter(options) {
     res.setHeader("Cache-Control", "no-store");
     try {
       const bundle = await readWikiAdminBundle(wikiDirResolved);
-      return res.json({ readme: bundle.readme, chapters: bundle.chapters });
+      return res.json({ readme: bundle.readme, pages: bundle.pages, categories: bundle.categories });
     } catch (e) {
       return res.status(500).json({ error: String(e && e.message ? e.message : e) });
     }
@@ -463,10 +463,12 @@ export function createAdminRouter(options) {
     res.setHeader("Cache-Control", "no-store");
     try {
       const body = req.body;
-      if (!body || typeof body.readme !== "string" || !Array.isArray(body.chapters)) {
-        return res.status(400).json({ error: "missing readme 或 chapters" });
+      if (!body || !Array.isArray(body.pages)) {
+        return res.status(400).json({ error: "missing pages" });
       }
-      await saveWikiAdminBundle(wikiDirResolved, { readme: body.readme, chapters: body.chapters });
+      const categories = Array.isArray(body.categories) ? body.categories : [];
+      const readme = typeof body.readme === "string" ? body.readme : "";
+      await saveWikiAdminBundle(wikiDirResolved, { readme, pages: body.pages, categories });
       return res.json({ ok: true });
     } catch (e) {
       const msg = String(e && e.message ? e.message : e);

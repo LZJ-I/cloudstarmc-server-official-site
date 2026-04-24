@@ -60,7 +60,55 @@ export function addHeadingIdsToHtml(html, pageSlug) {
   return { html: out, toc };
 }
 
-function parseChaptersFile(raw) {
+function sortByOrder(list) {
+  return list
+    .slice()
+    .sort((a, b) => {
+      const oa = typeof a.order === "number" && Number.isFinite(a.order) ? a.order : 1e9;
+      const ob = typeof b.order === "number" && Number.isFinite(b.order) ? b.order : 1e9;
+      if (oa !== ob) return oa - ob;
+      return String(a.id || a.slug || "").localeCompare(String(b.id || b.slug || ""), "en");
+    });
+}
+
+export function extractFirstH1FromMd(md) {
+  const t = String(md || "")
+    .replace(/^\uFEFF/, "")
+    .replace(/\r\n/g, "\n");
+  for (const line of t.split("\n")) {
+    const s = line.trim();
+    if (!s) continue;
+    const m = /^#\s+(.+)$/.exec(s);
+    if (m) return m[1].trim();
+  }
+  return "";
+}
+
+function categoryOrder(a, b) {
+  const oa = typeof a.order === "number" && Number.isFinite(a.order) ? a.order : 1e9;
+  const ob = typeof b.order === "number" && Number.isFinite(b.order) ? b.order : 1e9;
+  if (oa !== ob) return oa - ob;
+  return String(a.id || "").localeCompare(String(b.id || ""), "en");
+}
+
+function normalizeTocState(raw) {
+  const j = raw && typeof raw === "object" ? raw : {};
+  let pages = Array.isArray(j.pages) ? j.pages.filter((x) => x && typeof x === "object") : [];
+  let categories = Array.isArray(j.categories) ? j.categories.filter((x) => x && typeof x === "object") : [];
+  if (categories.length === 0) {
+    categories = [{ id: "cat-default", label: "文档", order: 0, defaultOpen: true }];
+  }
+  const catIds = new Set(categories.map((c) => String(c.id || "")));
+  const firstId = String(categories[0].id || "cat-default");
+  pages = pages.map((p) => {
+    const cid = p.categoryId != null && catIds.has(String(p.categoryId)) ? String(p.categoryId) : firstId;
+    return { ...p, categoryId: cid };
+  });
+  categories = categories.slice().sort(categoryOrder);
+  return { version: 2, categories, pages };
+}
+
+function parseChaptersJson(raw) {
   try {
     const j = JSON.parse(raw);
     if (!j || !Array.isArray(j.chapters)) return { chapters: [] };
@@ -68,17 +116,6 @@ function parseChaptersFile(raw) {
   } catch {
     return { chapters: [] };
   }
-}
-
-function sortChapters(list) {
-  return list
-    .slice()
-    .sort((a, b) => {
-      const oa = typeof a.order === "number" && Number.isFinite(a.order) ? a.order : 1e9;
-      const ob = typeof b.order === "number" && Number.isFinite(b.order) ? b.order : 1e9;
-      if (oa !== ob) return oa - ob;
-      return String(a.id || "").localeCompare(String(b.id || ""), "en");
-    });
 }
 
 export async function migrateLegacyWikiIfNeeded(wikiDir) {
@@ -138,6 +175,53 @@ export async function migrateLegacyWikiIfNeeded(wikiDir) {
   await fsp.writeFile(chaptersPath, JSON.stringify({ chapters }, null, 2), "utf8");
 }
 
+export async function migrateChaptersToPageFiles(wikiDir) {
+  const tocFile = path.join(wikiDir, "toc.json");
+  try {
+    await fsp.access(tocFile);
+    return;
+  } catch {
+    // need migration from chapters.json
+  }
+  const chaptersPath = path.join(wikiDir, "chapters.json");
+  let raw = '{"chapters":[]}';
+  try {
+    raw = await fsp.readFile(chaptersPath, "utf8");
+  } catch {
+    await fsp.mkdir(wikiDir, { recursive: true });
+    await fsp.mkdir(path.join(wikiDir, "pages"), { recursive: true });
+    await fsp.writeFile(tocFile, JSON.stringify({ pages: [] }, null, 2), "utf8");
+    return;
+  }
+  const { chapters } = parseChaptersJson(raw);
+  const list = sortByOrder(chapters.filter((c) => c && typeof c === "object"));
+  const pagesDir = path.join(wikiDir, "pages");
+  await fsp.mkdir(pagesDir, { recursive: true });
+  const meta = [];
+  for (const c of list) {
+    if (!c.slug || String(c.slug) === "index") continue;
+    const slug = String(c.slug).toLowerCase();
+    const body = c.body != null ? String(c.body) : "";
+    await fsp.writeFile(path.join(pagesDir, slug + ".md"), body, "utf8");
+    meta.push({
+      id: c.id != null ? String(c.id) : "p-" + slug,
+      title: c.title != null ? String(c.title) : slug,
+      slug,
+      order: typeof c.order === "number" && Number.isFinite(c.order) ? c.order : meta.length,
+    });
+  }
+  await fsp.writeFile(tocFile, JSON.stringify({ pages: sortByOrder(meta) }, null, 2), "utf8");
+  try {
+    await fsp.rename(chaptersPath, path.join(wikiDir, "chapters.json.bak"));
+  } catch {
+    try {
+      await fsp.unlink(chaptersPath);
+    } catch {
+      // ignore
+    }
+  }
+}
+
 export function renderMarkdownToPage(slug, md) {
   const raw = marked.parse(String(md || ""));
   return addHeadingIdsToHtml(raw, slug);
@@ -152,40 +236,59 @@ export async function readWikiReadme(wikiDir) {
   }
 }
 
-export async function readWikiChapters(wikiDir) {
-  const p = path.join(wikiDir, "chapters.json");
-  let raw = '{"chapters":[]}';
+async function readWikiTocData(wikiDir) {
+  const p = path.join(wikiDir, "toc.json");
   try {
-    raw = await fsp.readFile(p, "utf8");
-  } catch {}
-  return parseChaptersFile(raw);
+    const raw = (await fsp.readFile(p, "utf8")).replace(/^\uFEFF/, "");
+    const j = JSON.parse(raw);
+    return normalizeTocState(j);
+  } catch {
+    return normalizeTocState({});
+  }
+}
+
+async function readPageMd(wikiDir, slug) {
+  const p = path.join(wikiDir, "pages", slug + ".md");
+  try {
+    return (await fsp.readFile(p, "utf8")).replace(/\r\n/g, "\n");
+  } catch {
+    return "";
+  }
+}
+
+async function fileMtimeMs(absPath) {
+  try {
+    const st = await fsp.stat(absPath);
+    return st && typeof st.mtimeMs === "number" && Number.isFinite(st.mtimeMs) ? Math.floor(st.mtimeMs) : 0;
+  } catch {
+    return 0;
+  }
 }
 
 export async function buildWikiPublicJson(webDir) {
   const wikiDir = path.join(webDir, "wiki");
   await migrateLegacyWikiIfNeeded(wikiDir);
-  const indexMd = await readWikiReadme(wikiDir);
-  const { chapters: rawList } = await readWikiChapters(wikiDir);
-  const list = sortChapters(rawList.filter((c) => c && typeof c === "object"));
-  const indexRender = renderMarkdownToPage("index", indexMd);
-  const pages = [
-    {
-      slug: "index",
-      id: "wiki-index",
-      label: "索引",
-      html: indexRender.html,
-      toc: indexRender.toc,
-    },
-  ];
-  for (const ch of list) {
-    const slug = (ch.slug && String(ch.slug)) || "page";
+  await migrateChaptersToPageFiles(wikiDir);
+  const tocState = await readWikiTocData(wikiDir);
+  const list = sortByOrder(tocState.pages);
+  const pages = [];
+  for (const p of list) {
+    if (!p || !p.slug) continue;
+    const slug = String(p.slug);
     if (slug === "index") continue;
-    const r = renderMarkdownToPage(slug, ch.body != null ? String(ch.body) : "");
-    const title = ch.title != null ? String(ch.title) : slug;
+    const md = await readPageMd(wikiDir, slug);
+    const r = renderMarkdownToPage(slug, md);
+    const h1 = extractFirstH1FromMd(md);
+    const title = p.title != null ? String(p.title).trim() : "";
+    const label = h1 || title || slug;
+    const pageMtime = await fileMtimeMs(path.join(wikiDir, "pages", slug + ".md"));
     pages.push({
       slug,
       id: "wiki-" + slug.replace(/[^a-z0-9_-]/gi, ""),
-      label: title,
+      label,
+      categoryId: p.categoryId != null ? String(p.categoryId) : null,
+      order: typeof p.order === "number" && Number.isFinite(p.order) ? p.order : 0,
+      updatedAt: pageMtime,
       html: r.html,
       toc: r.toc,
     });
@@ -194,29 +297,97 @@ export async function buildWikiPublicJson(webDir) {
     id: p.id,
     label: p.label,
     slug: p.slug,
+    categoryId: p.categoryId,
   }));
-  return JSON.stringify({ version: 1, pages, nav, indexLabel: "索引" });
+  const categories = (tocState.categories || []).map((c) => ({
+    id: String(c.id || ""),
+    label: c.label != null ? String(c.label) : "",
+    order: typeof c.order === "number" && Number.isFinite(c.order) ? c.order : 0,
+    defaultOpen: c.defaultOpen !== false,
+  }));
+  return JSON.stringify({
+    version: 2,
+    pages,
+    nav,
+    categories,
+  });
 }
 
 export async function readWikiAdminBundle(wikiDir) {
   await migrateLegacyWikiIfNeeded(wikiDir);
+  await migrateChaptersToPageFiles(wikiDir);
   const readme = await readWikiReadme(wikiDir);
-  const { chapters } = await readWikiChapters(wikiDir);
-  return { readme, chapters: sortChapters((chapters || []).filter((c) => c && typeof c === "object")) };
+  const tocState = await readWikiTocData(wikiDir);
+  const sorted = sortByOrder(tocState.pages);
+  const outPages = [];
+  for (const p of sorted) {
+    if (!p || !p.slug) continue;
+    const slug = String(p.slug);
+    if (slug === "index") continue;
+    const content = await readPageMd(wikiDir, slug);
+    outPages.push({
+      id: p.id != null ? String(p.id) : "p-" + slug,
+      title: p.title != null ? String(p.title) : "",
+      slug,
+      categoryId: p.categoryId != null ? String(p.categoryId) : String(tocState.categories[0].id),
+      order: typeof p.order === "number" && Number.isFinite(p.order) ? p.order : outPages.length,
+      content,
+    });
+  }
+  const categories = (tocState.categories || []).map((c) => ({
+    id: String(c.id || ""),
+    label: c.label != null ? String(c.label) : "",
+    order: typeof c.order === "number" && Number.isFinite(c.order) ? c.order : 0,
+    defaultOpen: c.defaultOpen !== false,
+  }));
+  return { readme, pages: outPages, categories };
 }
 
-function normalizeChaptersForSave(chapters) {
-  if (!Array.isArray(chapters)) throw new Error("chapters 须为数组");
+function normalizeCategoriesForSave(categories) {
+  if (!Array.isArray(categories) || !categories.length) {
+    return [{ id: "cat-default", label: "文档", order: 0, defaultOpen: true }];
+  }
+  const used = new Set();
   const out = [];
+  for (let i = 0; i < categories.length; i++) {
+    const c = categories[i];
+    if (!c || typeof c !== "object") continue;
+    let id = String(c.id || "")
+      .trim()
+      .replace(/[^a-z0-9_-]/gi, "");
+    if (!id) id = "cat-" + i + "-" + Date.now().toString(36).slice(-4);
+    let b = id;
+    let n = 0;
+    while (used.has(id)) {
+      n++;
+      id = b + "-" + n;
+    }
+    used.add(id);
+    out.push({
+      id,
+      label: c.label != null ? String(c.label) : "分类",
+      order: i,
+      defaultOpen: c.defaultOpen !== false,
+    });
+  }
+  return out.length ? out : [{ id: "cat-default", label: "文档", order: 0, defaultOpen: true }];
+}
+
+function normalizePagesForSave(pages, categoryMeta) {
+  if (!Array.isArray(pages)) throw new Error("pages 须为数组");
+  const catIds = new Set(categoryMeta.map((c) => c.id));
+  const firstCat = categoryMeta[0] && categoryMeta[0].id;
+  const byCat = new Map();
+  const raw = [];
   const slugs = new Set(["index"]);
-  for (let i = 0; i < chapters.length; i++) {
-    const c = chapters[i];
+  for (let i = 0; i < pages.length; i++) {
+    const c = pages[i];
     if (!c || typeof c !== "object") continue;
     let slug = String(c.slug || "")
       .trim()
       .toLowerCase()
       .replace(/[^a-z0-9_-]/g, "");
-    if (slug === "index" || !slug) slug = "ch-" + i + "-" + Math.random().toString(36).slice(2, 6);
+    if (slug === "index" || !slug) slug = "pg-" + i + "-" + Math.random().toString(36).slice(2, 6);
     let n = 0;
     const base = slug;
     while (slugs.has(slug)) {
@@ -225,21 +396,81 @@ function normalizeChaptersForSave(chapters) {
     }
     slugs.add(slug);
     if (!isValidChapterSlug(slug)) throw new Error("无效 slug: " + slug);
-    out.push({
-      id: String(c.id || "ch-" + i + "-" + Date.now().toString(36)),
+    let cid = String(c.categoryId || "").trim();
+    if (!cid || !catIds.has(cid)) cid = firstCat;
+    raw.push({
+      id: String(c.id || "p-" + i + "-" + Date.now().toString(36)),
       title: c.title != null ? String(c.title) : "",
       slug,
-      body: c.body != null ? String(c.body) : "",
-      order: i,
+      content: c.content != null ? String(c.content) : "",
+      categoryId: cid,
+      inOrder: typeof c.order === "number" && Number.isFinite(c.order) ? c.order : i * 0.001,
+    });
+  }
+  for (const p of raw) {
+    if (!byCat.has(p.categoryId)) byCat.set(p.categoryId, []);
+    byCat.get(p.categoryId).push(p);
+  }
+  for (const [, arr] of byCat) {
+    arr.sort((a, b) => a.inOrder - b.inOrder);
+  }
+  const out = [];
+  for (const c of categoryMeta) {
+    const arr = byCat.get(c.id) || [];
+    arr.forEach((p, j) => {
+      out.push({
+        id: p.id,
+        title: p.title,
+        slug: p.slug,
+        content: p.content,
+        categoryId: c.id,
+        order: j,
+      });
     });
   }
   return out;
 }
 
-export async function saveWikiAdminBundle(wikiDir, { readme, chapters }) {
-  if (typeof readme !== "string") throw new Error("missing readme");
-  const norm = normalizeChaptersForSave(chapters);
+export async function saveWikiAdminBundle(wikiDir, { readme, pages, categories }) {
+  const rdm = typeof readme === "string" ? readme : "";
+  const normCats = normalizeCategoriesForSave(categories);
+  const norm = normalizePagesForSave(pages, normCats);
   await fsp.mkdir(wikiDir, { recursive: true });
-  await fsp.writeFile(path.join(wikiDir, "README.md"), readme, "utf8");
-  await fsp.writeFile(path.join(wikiDir, "chapters.json"), JSON.stringify({ chapters: norm }, null, 2), "utf8");
+  const pagesDir = path.join(wikiDir, "pages");
+  await fsp.mkdir(pagesDir, { recursive: true });
+  await fsp.writeFile(path.join(wikiDir, "README.md"), rdm, "utf8");
+  const meta = norm.map((p) => ({
+    id: p.id,
+    title: p.title,
+    slug: p.slug,
+    order: p.order,
+    categoryId: p.categoryId,
+  }));
+  const tocOut = { version: 2, categories: normCats, pages: meta };
+  await fsp.writeFile(path.join(wikiDir, "toc.json"), JSON.stringify(tocOut, null, 2), "utf8");
+  const want = new Set(norm.map((p) => p.slug));
+  try {
+    const names = await fsp.readdir(pagesDir);
+    for (const n of names) {
+      if (!n.endsWith(".md")) continue;
+      const s = n.slice(0, -3);
+      if (!want.has(s)) await fsp.unlink(path.join(pagesDir, n));
+    }
+  } catch {
+    // ignore
+  }
+  const normMd = (s) => String(s == null ? "" : s).replace(/\r\n/g, "\n");
+  for (const p of norm) {
+    const fp = path.join(pagesDir, p.slug + ".md");
+    const wantText = normMd(p.content);
+    let prev = null;
+    try {
+      prev = normMd(await fsp.readFile(fp, "utf8"));
+    } catch {
+      prev = null;
+    }
+    if (prev !== wantText) {
+      await fsp.writeFile(fp, p.content, "utf8");
+    }
+  }
 }

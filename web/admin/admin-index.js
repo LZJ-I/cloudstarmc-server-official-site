@@ -90,15 +90,26 @@ const siteFaviconInput = document.getElementById("siteFaviconInput");
 const siteBrandLogoInput = document.getElementById("siteBrandLogoInput");
 const siteHeroFloatInput = document.getElementById("siteHeroFloatInput");
 const siteAssetMsg = document.getElementById("siteAssetMsg");
-const mdSource = document.getElementById("mdSource");
-const wikiReadme = document.getElementById("wikiReadme");
-const wikiReadmePreview = document.getElementById("wikiReadmePreview");
-const tabReadmeSource = document.getElementById("tabReadmeSource");
-const tabReadmePreview = document.getElementById("tabReadmePreview");
-const wikiChaptersMount = document.getElementById("wikiChaptersMount");
-const wikiAddChapter = document.getElementById("wikiAddChapter");
-let wikiChapters = [];
-let wikiDragEl = null;
+const wikiBrowseMount = document.getElementById("wikiBrowseMount");
+const wikiNavPage = document.getElementById("wikiNavPage");
+const wikiPageBlock = document.getElementById("wikiPageBlock");
+const wikiPageH1Line = document.getElementById("wikiPageH1Line");
+const wikiPageMd = document.getElementById("wikiPageMd");
+const wikiAddPage = document.getElementById("wikiAddPage");
+const wikiAddCategory = document.getElementById("wikiAddCategory");
+const wikiPageUp = document.getElementById("wikiPageUp");
+const wikiPageDown = document.getElementById("wikiPageDown");
+const wikiPageDelete = document.getElementById("wikiPageDelete");
+const wikiCategoryBlock = document.getElementById("wikiCategoryBlock");
+const wikiCategoryLabel = document.getElementById("wikiCategoryLabel");
+const wikiCategoryOpen = document.getElementById("wikiCategoryOpen");
+const wikiCategoryUp = document.getElementById("wikiCategoryUp");
+const wikiCategoryDown = document.getElementById("wikiCategoryDown");
+const wikiCategoryDelete = document.getElementById("wikiCategoryDelete");
+const wikiState = { pages: [], categories: [] };
+let wikiSelect = "";
+let wikiDnd = null;
+let wikiSaveBaseline = null;
 const saveBtn = document.getElementById("saveBtn");
 const saveMsg = document.getElementById("saveMsg");
 const btnWikiUploads = document.getElementById("btnWikiUploads");
@@ -226,14 +237,406 @@ async function sessionOk() {
   return r.ok;
 }
 
-async function refreshPreview() {
-  try {
-    const marked = await getMarked();
-    mdPreview.innerHTML = marked.parse(mdSource.value || "");
-  } catch {
-    mdPreview.innerHTML =
-      "<p>预览组件加载失败，请确认 <code>/js/vendor/marked.esm.js</code> 可访问。</p>";
+function wikiSlugify(s) {
+  return String(s || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 48);
+}
+
+function wikiExtractH1(md) {
+  const t = String(md || "").replace(/^\uFEFF/, "");
+  for (const line of t.split("\n")) {
+    const s = line.trim();
+    if (!s) continue;
+    const m = /^#\s+(.+)$/.exec(s);
+    if (m) return m[1].trim();
   }
+  return "";
+}
+
+function wikiPagesInCategory(catId) {
+  return wikiState.pages
+    .filter((p) => p.categoryId === catId)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+}
+
+function wikiReindexCategories() {
+  wikiState.categories.sort((a, b) => (a.order || 0) - (b.order || 0));
+  wikiState.categories.forEach((c, i) => {
+    c.order = i;
+  });
+}
+
+function wikiReindexAllPageOrders() {
+  for (const c of wikiState.categories) {
+    const arr = wikiPagesInCategory(c.id);
+    arr.forEach((p, i) => {
+      p.order = i;
+    });
+  }
+}
+
+function wikiDefaultSelect() {
+  const sc = [...wikiState.categories].sort((a, b) => (a.order || 0) - (b.order || 0));
+  for (const c of sc) {
+    const arr = wikiPagesInCategory(c.id);
+    if (arr.length) {
+      return arr[0].id;
+    }
+  }
+  if (sc[0]) {
+    return "cat:" + sc[0].id;
+  }
+  return "";
+}
+
+function wikiSyncCurrentPageContentFromEditor() {
+  if (wikiSelect.startsWith("cat:") || !wikiPageMd) return;
+  const p = wikiState.pages.find((x) => x.id === wikiSelect);
+  if (p) p.content = wikiPageMd.value;
+}
+
+function wikiCommitToState() {
+  if (wikiSelect.startsWith("cat:")) {
+    const cid = wikiSelect.slice(4);
+    const c = wikiState.categories.find((x) => x.id === cid);
+    if (c && wikiCategoryLabel) {
+      c.label = wikiCategoryLabel.value;
+      c.defaultOpen = wikiCategoryOpen ? wikiCategoryOpen.checked : true;
+    }
+  } else {
+    const p = wikiState.pages.find((x) => x.id === wikiSelect);
+    if (p && wikiPageMd) {
+      p.title = "";
+      p.content = wikiPageMd.value;
+      const t = wikiSlugify(wikiExtractH1(p.content));
+      p.slug = t
+        ? t
+        : String(p.slug || "")
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9_-]/g, "");
+    }
+  }
+}
+
+function rebuildWikiNavSelects() {
+  if (!wikiNavPage) return;
+  const cur = wikiSelect;
+  wikiNavPage.textContent = "";
+  const sortC = (a, b) => (a.order || 0) - (b.order || 0);
+  [...wikiState.categories].sort(sortC).forEach((cat) => {
+    const og = document.createElement("optgroup");
+    og.label = cat.label || "分类";
+    const oCat = document.createElement("option");
+    oCat.value = "cat:" + cat.id;
+    oCat.textContent = "（编辑分类）" + (cat.label ? " " + cat.label : "");
+    og.appendChild(oCat);
+    wikiPagesInCategory(cat.id).forEach((p) => {
+      const o = document.createElement("option");
+      o.value = p.id;
+      o.textContent = wikiExtractH1(p.content) || p.slug;
+      og.appendChild(o);
+    });
+    wikiNavPage.appendChild(og);
+  });
+  [...wikiNavPage.options].forEach((o) => {
+    if (o.value === cur) wikiNavPage.value = cur;
+  });
+  if ([...wikiNavPage.options].some((x) => x.value === cur)) {
+    wikiNavPage.value = cur;
+  } else {
+    wikiSelect = wikiDefaultSelect();
+    if (wikiSelect) {
+      wikiNavPage.value = wikiSelect;
+    }
+  }
+}
+
+function wikiSyncOrderFromDom() {
+  if (!wikiBrowseMount) return;
+  const groups = [...wikiBrowseMount.querySelectorAll(":scope > .admin-wiki-browse-group")];
+  groups.forEach((g, catIndex) => {
+    const catId = g.getAttribute("data-cat-id");
+    const c = wikiState.categories.find((x) => x.id === catId);
+    if (c) c.order = catIndex;
+    const rows = [...g.querySelectorAll(":scope > .admin-wiki-browse-pages > .admin-wiki-browse-pagerow")];
+    rows.forEach((row, pi) => {
+      const pid = row.getAttribute("data-page-id");
+      const p = wikiState.pages.find((x) => x.id === pid);
+      if (p) {
+        p.categoryId = catId;
+        p.order = pi;
+      }
+    });
+  });
+  wikiReindexCategories();
+  wikiReindexAllPageOrders();
+}
+
+function rebuildWikiBrowseList() {
+  if (!wikiBrowseMount) return;
+  wikiBrowseMount.textContent = "";
+  const sortC = (a, b) => (a.order || 0) - (b.order || 0);
+  [...wikiState.categories].sort(sortC).forEach((cat) => {
+    const group = document.createElement("div");
+    group.className = "admin-wiki-browse-group";
+    group.setAttribute("data-cat-id", cat.id);
+    const catRow = document.createElement("div");
+    catRow.className = "admin-wiki-browse-catrow";
+    const gCat = document.createElement("span");
+    gCat.className = "admin-wiki-browse__grip";
+    gCat.draggable = true;
+    gCat.setAttribute("aria-hidden", "true");
+    gCat.textContent = "⋮";
+    gCat.title = "拖曳整组分类与下属文章";
+    const gh = document.createElement("button");
+    gh.type = "button";
+    gh.className = "admin-ev-browse-row admin-wiki-browse-cat";
+    gh.textContent = (cat.label && String(cat.label).trim()) || "分类";
+    if (wikiSelect === "cat:" + cat.id) gh.classList.add("is-active");
+    gh.addEventListener("click", () => {
+      wikiCommitToState();
+      wikiSelect = "cat:" + cat.id;
+      if (wikiNavPage) wikiNavPage.value = "cat:" + cat.id;
+      wikiApplyPanelFromState();
+    });
+    catRow.appendChild(gCat);
+    catRow.appendChild(gh);
+    const pages = document.createElement("div");
+    pages.className = "admin-wiki-browse-pages";
+    wikiPagesInCategory(cat.id).forEach((p) => {
+      const row = document.createElement("div");
+      row.className = "admin-wiki-browse-pagerow";
+      row.setAttribute("data-page-id", p.id);
+      const gPage = document.createElement("span");
+      gPage.className = "admin-wiki-browse__grip admin-wiki-browse__grip--sub";
+      gPage.draggable = true;
+      gPage.setAttribute("aria-hidden", "true");
+      gPage.textContent = "⋮";
+      gPage.title = "拖曳调整文章顺序，或拖入其他分类";
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "admin-ev-browse-row admin-wiki-browse-sub";
+      b.textContent = wikiExtractH1(p.content) || p.slug;
+      if (wikiSelect === p.id) b.classList.add("is-active");
+      b.addEventListener("click", () => {
+        wikiCommitToState();
+        wikiSelect = p.id;
+        if (wikiNavPage) wikiNavPage.value = p.id;
+        wikiApplyPanelFromState();
+      });
+      row.appendChild(gPage);
+      row.appendChild(b);
+      pages.appendChild(row);
+    });
+    group.appendChild(catRow);
+    group.appendChild(pages);
+    wikiBrowseMount.appendChild(group);
+  });
+}
+
+function initWikiBrowseDnd() {
+  if (!wikiBrowseMount || initWikiBrowseDnd.done) return;
+  initWikiBrowseDnd.done = true;
+  const clearDndOver = function () {
+    wikiBrowseMount.querySelectorAll(".is-wiki-dnd-over").forEach((n) => n.classList.remove("is-wiki-dnd-over"));
+  };
+  const clearDndAll = function () {
+    if (!wikiBrowseMount) return;
+    clearDndOver();
+    wikiBrowseMount.querySelectorAll(".is-wiki-dnd-source").forEach((n) => n.classList.remove("is-wiki-dnd-source"));
+  };
+  const applyGroupFromPoint = function (e, w) {
+    if (!w || w.kind !== "g") return;
+    const allG = [...wikiBrowseMount.querySelectorAll(":scope > .admin-wiki-browse-group")];
+    let before = null;
+    for (const g of allG) {
+      if (g === w.el) continue;
+      const r = g.getBoundingClientRect();
+      if (e.clientY < r.top + r.height / 2) {
+        before = g;
+        break;
+      }
+    }
+    if (before) {
+      wikiBrowseMount.insertBefore(w.el, before);
+    } else {
+      wikiBrowseMount.appendChild(w.el);
+    }
+  };
+  const applyPageDrop = function (e, w) {
+    if (!w || w.kind !== "p") return;
+    const tRow = e.target.closest && e.target.closest(".admin-wiki-browse-pagerow");
+    if (tRow === w.el) return;
+    if (tRow) {
+      const tParent = tRow.parentElement;
+      if (tParent) {
+        const r = tRow.getBoundingClientRect();
+        const before = e.clientY < r.top + r.height / 2;
+        if (before) tParent.insertBefore(w.el, tRow);
+        else tParent.insertBefore(w.el, tRow.nextSibling);
+        return;
+      }
+    }
+    const tG = e.target.closest && e.target.closest(".admin-wiki-browse-group");
+    if (!tG) return;
+    const pages = tG.querySelector(".admin-wiki-browse-pages");
+    if (!pages) return;
+    if (
+      (e.target.closest && e.target.closest(".admin-wiki-browse-catrow")) ||
+      (e.target.classList && e.target.classList.contains("admin-wiki-browse__grip") && e.target.closest(".admin-wiki-browse-catrow"))
+    ) {
+      pages.insertBefore(w.el, pages.firstElementChild);
+    } else {
+      pages.appendChild(w.el);
+    }
+  };
+  wikiBrowseMount.addEventListener("dragenter", (e) => e.preventDefault(), true);
+  wikiBrowseMount.addEventListener(
+    "dragover",
+    (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      clearDndOver();
+      if (!wikiDnd) return;
+      if (wikiDnd.kind === "g") {
+        const allG = [...wikiBrowseMount.querySelectorAll(":scope > .admin-wiki-browse-group")];
+        for (const g of allG) {
+          if (g === wikiDnd.el) continue;
+          const r = g.getBoundingClientRect();
+          if (e.clientY < r.top + r.height / 2) {
+            g.classList.add("is-wiki-dnd-over");
+            return;
+          }
+        }
+        const last = allG.filter((x) => x !== wikiDnd.el).pop();
+        if (last) last.classList.add("is-wiki-dnd-over");
+      } else {
+        const tR = e.target.closest && e.target.closest(".admin-wiki-browse-pagerow");
+        if (tR) {
+          tR.classList.add("is-wiki-dnd-over");
+          return;
+        }
+        const tG = e.target.closest && e.target.closest(".admin-wiki-browse-group");
+        if (tG) tG.classList.add("is-wiki-dnd-over");
+      }
+    },
+    true
+  );
+  wikiBrowseMount.addEventListener("dragstart", (e) => {
+    if (!e.target || !e.target.classList || !e.target.classList.contains("admin-wiki-browse__grip")) return;
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", "wiki");
+    const pRow = e.target.closest && e.target.closest(".admin-wiki-browse-pagerow");
+    if (pRow) {
+      wikiDnd = { kind: "p", el: pRow, id: pRow.getAttribute("data-page-id") };
+      pRow.classList.add("is-wiki-dnd-source");
+    } else {
+      const g = e.target.closest && e.target.closest(".admin-wiki-browse-group");
+      const inCat = e.target.closest && e.target.closest(".admin-wiki-browse-catrow");
+      if (g && inCat) {
+        wikiDnd = { kind: "g", el: g, id: g.getAttribute("data-cat-id") };
+        g.classList.add("is-wiki-dnd-source");
+      } else {
+        e.preventDefault();
+      }
+    }
+  });
+  wikiBrowseMount.addEventListener("dragend", () => {
+    clearDndAll();
+    wikiDnd = null;
+  });
+  wikiBrowseMount.addEventListener(
+    "drop",
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!wikiDnd) return;
+      const w = wikiDnd;
+      wikiDnd = null;
+      clearDndAll();
+      if (w.kind === "g") {
+        applyGroupFromPoint(e, w);
+      } else {
+        applyPageDrop(e, w);
+      }
+      wikiSyncOrderFromDom();
+      wikiApplyPanelFromState();
+    },
+    true
+  );
+}
+initWikiBrowseDnd();
+
+function wikiGetSavePayload() {
+  wikiCommitToState();
+  wikiReindexCategories();
+  wikiReindexAllPageOrders();
+  const pages = wikiState.pages.map((p) => ({
+    id: p.id,
+    title: "",
+    slug: p.slug,
+    content: p.content,
+    order: p.order,
+    categoryId: p.categoryId,
+  }));
+  const categories = wikiState.categories.map((c) => ({
+    id: c.id,
+    label: c.label,
+    order: c.order,
+    defaultOpen: c.defaultOpen !== false,
+  }));
+  return { readme: "", pages, categories };
+}
+
+function wikiApplyPanelFromState() {
+  const isCat = wikiSelect.startsWith("cat:");
+  if (wikiPageBlock) wikiPageBlock.hidden = isCat;
+  if (wikiCategoryBlock) wikiCategoryBlock.hidden = !isCat;
+  if (isCat) {
+    const cid = wikiSelect.slice(4);
+    const c = wikiState.categories.find((x) => x.id === cid);
+    if (c && wikiCategoryLabel) {
+      wikiCategoryLabel.value = c.label != null ? String(c.label) : "";
+      if (wikiCategoryOpen) wikiCategoryOpen.checked = c.defaultOpen !== false;
+    }
+  } else {
+    const p = wikiState.pages.find((x) => x.id === wikiSelect);
+    if (p && wikiPageMd) {
+      wikiPageMd.value = p.content != null ? String(p.content) : "";
+    } else {
+      const n = wikiDefaultSelect();
+      if (n && n !== wikiSelect) {
+        wikiSelect = n;
+        wikiApplyPanelFromState();
+        return;
+      }
+    }
+  }
+  rebuildWikiNavSelects();
+  rebuildWikiBrowseList();
+  wikiSyncH1Line();
+}
+
+function wikiSyncH1Line() {
+  if (!wikiPageH1Line) return;
+  if (wikiSelect.startsWith("cat:") || !wikiPageMd) {
+    wikiPageH1Line.textContent = "";
+    wikiPageH1Line.hidden = true;
+    return;
+  }
+  const h = wikiExtractH1(wikiPageMd.value);
+  if (!h) {
+    wikiPageH1Line.textContent = "";
+    wikiPageH1Line.hidden = true;
+    return;
+  }
+  wikiPageH1Line.textContent = h;
+  wikiPageH1Line.hidden = false;
 }
 
 async function loadWikiMd() {
@@ -248,37 +651,40 @@ async function loadWikiMd() {
     return false;
   }
   if (!r.ok) {
-    saveMsg.textContent = "无法加载 content.md";
+    saveMsg.textContent = "无法加载百科数据";
     saveMsg.className = "admin-msg is-bad";
-    mdSource.value = "";
     return false;
   }
   const data = await r.json();
-  mdSource.value = typeof data.content === "string" ? data.content : "";
+  const rawC = Array.isArray(data.categories) ? data.categories : [];
+  wikiState.categories = rawC.map((c, i) => ({
+    id: c && c.id != null ? String(c.id) : "cat-" + i,
+    label: c && c.label != null ? String(c.label) : "分类",
+    order: typeof c?.order === "number" && Number.isFinite(c.order) ? c.order : i,
+    defaultOpen: c && c.defaultOpen !== false,
+  }));
+  if (!wikiState.categories.length) {
+    wikiState.categories = [{ id: "cat-default", label: "文档", order: 0, defaultOpen: true }];
+  }
+  const defCat = wikiState.categories[0].id;
+  const raw = Array.isArray(data.pages) ? data.pages : [];
+  wikiState.pages = raw.map((x, i) => ({
+    id: x && x.id != null ? String(x.id) : "p-" + i,
+    title: "",
+    slug: x && x.slug != null ? String(x.slug).toLowerCase() : "p-" + i,
+    content: x && x.content != null ? String(x.content) : "",
+    categoryId: x && x.categoryId != null ? String(x.categoryId) : defCat,
+    order: typeof x?.order === "number" && Number.isFinite(x.order) ? x.order : i,
+  }));
+  wikiReindexCategories();
+  wikiReindexAllPageOrders();
+  wikiSelect = wikiDefaultSelect();
+  wikiApplyPanelFromState();
   saveMsg.textContent = "";
   saveMsg.className = "admin-msg";
-  await refreshPreview();
+  wikiSaveBaseline = JSON.stringify(wikiGetSavePayload());
   return true;
 }
-
-async function setEditMode(mode) {
-  const isSrc = mode === "source";
-  tabSource.classList.toggle("is-active", isSrc);
-  tabPreview.classList.toggle("is-active", !isSrc);
-  tabSource.setAttribute("aria-selected", isSrc ? "true" : "false");
-  tabPreview.setAttribute("aria-selected", isSrc ? "false" : "true");
-  const host = document.getElementById("wikiEditorHost");
-  if (host) host.hidden = !isSrc;
-  else mdSource.hidden = !isSrc;
-  mdPreview.hidden = isSrc;
-  if (!isSrc) {
-    mdPreview.focus();
-    await refreshPreview();
-  } else {
-    mdSource.focus();
-  }
-}
-
 
 function copyWithExecCommand(text) {
   const ta = wikiCopyScratch;
@@ -828,7 +1234,6 @@ loginForm.addEventListener("submit", async (e) => {
   showApp();
   await refreshSessionUser();
   setPanel("wiki");
-  await setEditMode("source");
   await loadWikiMd();
 });
 
@@ -872,7 +1277,6 @@ if (initialForm) {
     showApp();
     await refreshSessionUser();
     setPanel("wiki");
-    await setEditMode("source");
     await loadWikiMd();
   });
 }
@@ -923,8 +1327,8 @@ logoutBtn.addEventListener("click", async () => {
       return;
     }
   } catch (_) {}
-  mdSource.value = "";
-  mdPreview.innerHTML = "";
+  wikiState.pages = [];
+  wikiState.categories = [];
   showLoginOnly();
 });
 
@@ -1017,12 +1421,188 @@ if (admAuditClearFilter && admAuditUserFilter) {
   });
 }
 
-tabSource.addEventListener("click", () => {
-  setEditMode("source");
-});
-tabPreview.addEventListener("click", () => {
-  setEditMode("preview");
-});
+if (wikiNavPage) {
+  wikiNavPage.addEventListener("change", () => {
+    wikiCommitToState();
+    wikiSelect = wikiNavPage.value;
+    wikiApplyPanelFromState();
+  });
+}
+function wikiTargetCategoryId() {
+  if (wikiSelect.startsWith("cat:")) {
+    return wikiSelect.slice(4);
+  }
+  {
+    const p = wikiState.pages.find((x) => x.id === wikiSelect);
+    if (p) {
+      return p.categoryId;
+    }
+  }
+  const sc = [...wikiState.categories].sort((a, b) => (a.order || 0) - (b.order || 0))[0];
+  return sc ? sc.id : "cat-default";
+}
+if (wikiAddCategory) {
+  wikiAddCategory.addEventListener("click", () => {
+    wikiCommitToState();
+    const newId = "cat-" + Date.now().toString(36) + Math.random().toString(36).slice(0, 4);
+    wikiState.categories.push({
+      id: newId,
+      label: "新分类",
+      order: wikiState.categories.length,
+      defaultOpen: true,
+    });
+    wikiReindexCategories();
+    wikiSelect = "cat:" + newId;
+    if (wikiNavPage) wikiNavPage.value = "cat:" + newId;
+    wikiApplyPanelFromState();
+  });
+}
+if (wikiCategoryUp) {
+  wikiCategoryUp.addEventListener("click", () => {
+    if (!wikiSelect.startsWith("cat:")) return;
+    wikiCommitToState();
+    const cid = wikiSelect.slice(4);
+    const arr = [...wikiState.categories].sort((a, b) => (a.order || 0) - (b.order || 0));
+    const idx = arr.findIndex((c) => c.id === cid);
+    if (idx < 1) return;
+    const a = arr[idx - 1];
+    const b = arr[idx];
+    const to = a.order;
+    a.order = b.order;
+    b.order = to;
+    wikiReindexCategories();
+    wikiApplyPanelFromState();
+  });
+}
+if (wikiCategoryDown) {
+  wikiCategoryDown.addEventListener("click", () => {
+    if (!wikiSelect.startsWith("cat:")) return;
+    wikiCommitToState();
+    const cid = wikiSelect.slice(4);
+    const arr = [...wikiState.categories].sort((a, b) => (a.order || 0) - (b.order || 0));
+    const idx = arr.findIndex((c) => c.id === cid);
+    if (idx < 0 || idx >= arr.length - 1) return;
+    const a = arr[idx];
+    const b = arr[idx + 1];
+    const to = a.order;
+    a.order = b.order;
+    b.order = to;
+    wikiReindexCategories();
+    wikiApplyPanelFromState();
+  });
+}
+if (wikiCategoryDelete) {
+  wikiCategoryDelete.addEventListener("click", () => {
+    if (!wikiSelect.startsWith("cat:") || wikiState.categories.length < 2) return;
+    if (!window.confirm("删除该分类？其下页面将并入第一个分类。")) return;
+    wikiCommitToState();
+    const cid = wikiSelect.slice(4);
+    const first = [...wikiState.categories].sort((a, b) => (a.order || 0) - (b.order || 0)).find(
+      (c) => c.id !== cid
+    );
+    if (!first) return;
+    wikiState.pages.forEach((p) => {
+      if (p.categoryId === cid) p.categoryId = first.id;
+    });
+    wikiState.categories = wikiState.categories.filter((c) => c.id !== cid);
+    wikiReindexCategories();
+    wikiReindexAllPageOrders();
+    wikiSelect = "cat:" + first.id;
+    if (wikiNavPage) wikiNavPage.value = "cat:" + first.id;
+    wikiApplyPanelFromState();
+  });
+}
+if (wikiAddPage) {
+  wikiAddPage.addEventListener("click", () => {
+    wikiCommitToState();
+    const ns = "new-" + Date.now().toString(36).slice(-5);
+    const newId = "p-" + Date.now().toString(36) + Math.random().toString(36).slice(0, 4);
+    const catId = wikiTargetCategoryId();
+    const n = wikiPagesInCategory(catId).length;
+    wikiState.pages.push({
+      id: newId,
+      title: "",
+      slug: ns,
+      content: "# 新页面\n\n",
+      order: n,
+      categoryId: catId,
+    });
+    wikiReindexAllPageOrders();
+    wikiSelect = newId;
+    if (wikiNavPage) wikiNavPage.value = newId;
+    wikiApplyPanelFromState();
+  });
+}
+if (wikiPageUp) {
+  wikiPageUp.addEventListener("click", () => {
+    const p = wikiState.pages.find((x) => x.id === wikiSelect);
+    if (!p) return;
+    wikiCommitToState();
+    const sib = wikiPagesInCategory(p.categoryId);
+    const idx = sib.findIndex((x) => x.id === p.id);
+    if (idx < 1) return;
+    const a = sib[idx - 1];
+    const b = sib[idx];
+    const t = a.order;
+    a.order = b.order;
+    b.order = t;
+    wikiReindexAllPageOrders();
+    wikiApplyPanelFromState();
+  });
+}
+if (wikiPageDown) {
+  wikiPageDown.addEventListener("click", () => {
+    const p = wikiState.pages.find((x) => x.id === wikiSelect);
+    if (!p) return;
+    wikiCommitToState();
+    const sib = wikiPagesInCategory(p.categoryId);
+    const idx = sib.findIndex((x) => x.id === p.id);
+    if (idx < 0 || idx >= sib.length - 1) return;
+    const a = sib[idx];
+    const b = sib[idx + 1];
+    const t = a.order;
+    a.order = b.order;
+    b.order = t;
+    wikiReindexAllPageOrders();
+    wikiApplyPanelFromState();
+  });
+}
+if (wikiPageDelete) {
+  wikiPageDelete.addEventListener("click", () => {
+    if (wikiSelect.startsWith("cat:")) {
+    return;
+  }
+    wikiCommitToState();
+    const id = wikiSelect;
+    wikiState.pages = wikiState.pages.filter((x) => x.id !== id);
+    wikiReindexAllPageOrders();
+    wikiSelect = wikiDefaultSelect();
+    wikiApplyPanelFromState();
+  });
+}
+if (wikiPageMd) {
+  wikiPageMd.addEventListener("input", () => {
+    wikiSyncCurrentPageContentFromEditor();
+    wikiSyncH1Line();
+    rebuildWikiNavSelects();
+    rebuildWikiBrowseList();
+  });
+}
+if (wikiCategoryLabel) {
+  wikiCategoryLabel.addEventListener("input", () => {
+    if (!wikiSelect.startsWith("cat:")) return;
+    const c = wikiState.categories.find((x) => x.id === wikiSelect.slice(4));
+    if (c) c.label = wikiCategoryLabel.value;
+    rebuildWikiBrowseList();
+  });
+}
+if (wikiCategoryOpen) {
+  wikiCategoryOpen.addEventListener("change", () => {
+    if (!wikiSelect.startsWith("cat:")) return;
+    const c = wikiState.categories.find((x) => x.id === wikiSelect.slice(4));
+    if (c) c.defaultOpen = wikiCategoryOpen.checked;
+  });
+}
 
 if (btnWikiUploads) {
   btnWikiUploads.addEventListener("click", () => void openWikiUploadsDlg());
@@ -1044,10 +1624,6 @@ if (wikiUploadFileInput) {
   });
 }
 
-mdSource.addEventListener("input", () => {
-  if (!mdPreview.hidden) refreshPreview();
-});
-
 let wikiSaveInFlight = false;
 saveBtn.addEventListener("click", async () => {
   if (wikiSaveInFlight) return;
@@ -1058,12 +1634,54 @@ saveBtn.addEventListener("click", async () => {
   const ac = new AbortController();
   const t = setTimeout(() => ac.abort(), 60000);
   try {
+    const body = wikiGetSavePayload();
+    const nextStr = JSON.stringify(body);
+    if (wikiSaveBaseline != null && nextStr === wikiSaveBaseline) {
+      saveMsg.textContent = "无改动";
+      saveMsg.className = "admin-msg";
+      wikiSaveInFlight = false;
+      saveBtn.disabled = false;
+      clearTimeout(t);
+      return;
+    }
+    const pages = body.pages;
+    const slugs = new Set();
+    for (const c of pages) {
+      const s = String(c.slug || "")
+        .trim()
+        .toLowerCase();
+      if (s === "index") {
+        saveMsg.textContent = "某页面的 slug 不能为 index";
+        saveMsg.className = "admin-msg is-bad";
+        wikiSaveInFlight = false;
+        saveBtn.disabled = false;
+        clearTimeout(t);
+        return;
+      }
+      if (!/^[a-z0-9][a-z0-9_-]*$/.test(s)) {
+        saveMsg.textContent = "非法 slug，仅允许小写英文/数字/短横线/下划线：" + (c.title || "");
+        saveMsg.className = "admin-msg is-bad";
+        wikiSaveInFlight = false;
+        saveBtn.disabled = false;
+        clearTimeout(t);
+        return;
+      }
+      if (slugs.has(s)) {
+        saveMsg.textContent = "slug 重复：" + s;
+        saveMsg.className = "admin-msg is-bad";
+        wikiSaveInFlight = false;
+        saveBtn.disabled = false;
+        clearTimeout(t);
+        return;
+      }
+      slugs.add(s);
+    }
     const r = await fetch("/api/admin/wiki", {
       method: "POST",
       headers: { "Content-Type": "application/json; charset=utf-8" },
       credentials: "include",
       cache: "no-store",
-      body: JSON.stringify({ content: mdSource.value }),
+      body: nextStr,
       signal: ac.signal,
     });
     if (r.status === 401) {
@@ -1084,6 +1702,7 @@ saveBtn.addEventListener("click", async () => {
     }
     saveMsg.textContent = "已保存";
     saveMsg.className = "admin-msg is-ok";
+    wikiSaveBaseline = nextStr;
   } catch (e) {
     const name = e && e.name;
     saveMsg.textContent =
@@ -2542,8 +3161,18 @@ function parseEventsJsonSafe(text) {
   }
 }
 
+function nowEventDateString() {
+  const dt = new Date();
+  const y = String(dt.getFullYear());
+  const m = String(dt.getMonth() + 1).padStart(2, "0");
+  const d = String(dt.getDate()).padStart(2, "0");
+  const hh = String(dt.getHours()).padStart(2, "0");
+  const mm = String(dt.getMinutes()).padStart(2, "0");
+  return y + "-" + m + "-" + d + " " + hh + ":" + mm;
+}
+
 function emptyEventItem() {
-  return { id: newEventId(), date: "", title: "", body: "", tier: "minor" };
+  return { id: newEventId(), date: nowEventDateString(), title: "", body: "", tier: "minor" };
 }
 
 function normalizeEventsData(raw) {
@@ -3275,7 +3904,6 @@ if (siteHeroFloatInput) {
     showApp();
     await refreshSessionUser();
     setPanel("wiki");
-    await setEditMode("source");
     await loadWikiMd();
   } else {
     showLoginOnly();

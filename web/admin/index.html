@@ -69,32 +69,54 @@
 </ul>
 </nav>
 <article id="panelWiki" class="admin-panel">
-<p class="admin-meta">图片在 <code>web/wiki/uploads/</code>，正文里 <code>![](/wiki/uploads/…)</code> 引用。索引为 <code>README.md</code>，章节在 <code>chapters.json</code>（由本页维护）。</p>
+<p class="admin-meta">图库 <code>web/wiki/uploads/</code>。子页在 <code>web/wiki/pages/</code>；<code>web/wiki/toc.json</code> 存分类与排序（v2）。</p>
 <div class="admin-modebar" role="toolbar">
+<div class="admin-modebar__tabs">
 <button type="button" class="outline contrast" id="btnWikiUploads">图库</button>
 </div>
-<h2 class="admin-h2" style="margin-top:0.5rem">索引页（README）</h2>
-<div class="admin-modebar" role="tablist" aria-label="索引编辑模式" style="margin-top:0">
-<div class="admin-modebar__tabs">
-<button type="button" class="outline admin-seg is-active" role="tab" id="tabReadmeSource" aria-selected="true" aria-controls="wikiReadme">源码</button>
-<button type="button" class="outline admin-seg" role="tab" id="tabReadmePreview" aria-selected="false" aria-controls="wikiReadmePreview">审阅</button>
-</div>
-</div>
-<div class="admin-editor-wrap">
-<div id="wikiReadmeHost" class="admin-wiki-source">
-<textarea id="wikiReadme" class="admin-textarea" spellcheck="false" aria-label="README Markdown" rows="12"></textarea>
-</div>
-<div id="wikiReadmePreview" class="admin-preview wiki-md" role="region" aria-label="README 审阅" tabindex="0" hidden></div>
-</div>
-<div class="admin-wiki-chapters-head">
-<h2 class="admin-h2">章节</h2>
-<button type="button" class="outline secondary" id="wikiAddChapter">+ 添加章节</button>
-</div>
-<p class="admin-muted" style="margin:0 0 0.5rem">拖动 <span class="admin-wiki-drag">⠿</span> 可排序。slug 仅小写英文/数字/短横线，且不可为 <code>index</code>。</p>
-<div id="wikiChaptersMount" class="admin-wiki-chapters"></div>
+<div class="admin-modebar__end">
 <p id="saveMsg" class="admin-msg" role="status" aria-live="polite"></p>
 <button type="button" id="saveBtn">保存</button>
+</div>
+</div>
+<div class="admin-wiki-work">
+<aside class="admin-ev-browse admin-wiki-browse" aria-label="百科结构">
+<div id="wikiBrowseMount" class="admin-ev-browse__inner"></div>
+</aside>
+<div class="admin-ev-main">
+<div class="admin-ev-toolbar" id="wikiToolbar" role="toolbar">
+<span class="admin-ev-toolbar__label">选择</span>
+<select id="wikiNavPage" aria-label="选择页面" class="admin-wiki-nav-select"></select>
+<button type="button" class="outline secondary" id="wikiAddCategory">+ 分类</button>
+<button type="button" class="outline secondary" id="wikiAddPage">+ 页面</button>
+</div>
+<div id="wikiCategoryBlock" class="admin-wiki-cat-block" hidden>
+<div class="admin-wiki-cat-bar">
+<label for="wikiCategoryLabel" class="admin-wiki-cat-lab">分类标题</label>
+<input type="text" id="wikiCategoryLabel" class="admin-wiki-cat-in" placeholder="如 🚀 安装部署" autocomplete="off" spellcheck="false" aria-label="分类标题"/>
+<label class="admin-wiki-cat-cb"><input type="checkbox" id="wikiCategoryOpen" checked/> 默认展开</label>
+<span class="admin-wiki-cat-acts">
+<button type="button" class="outline secondary" id="wikiCategoryUp" title="分类上移">↑</button>
+<button type="button" class="outline secondary" id="wikiCategoryDown" title="分类下移">↓</button>
+<button type="button" class="outline secondary" id="wikiCategoryDelete" title="删除分类">删分类</button>
+</span>
+</div>
+</div>
+<div id="wikiPageBlock" hidden>
+<div class="admin-wiki-page-toolbar">
+<div class="admin-wiki-h1-block" id="wikiPageH1Block">
+<p class="admin-wiki-h1-hint">首行以 <code># 大标题</code> 书写；与官网侧栏、页内导览一致。下方为根据当前正文算出的标题预览，随输入更新。</p>
+<p class="admin-wiki-h1-line" id="wikiPageH1Line" aria-live="polite" hidden></p>
+</div>
+<button type="button" class="outline secondary" id="wikiPageUp" title="同分类内上移">↑</button>
+<button type="button" class="outline secondary" id="wikiPageDown" title="同分类内下移">↓</button>
+<button type="button" class="outline secondary" id="wikiPageDelete" title="删除本页">删页</button>
+</div>
+<textarea id="wikiPageMd" class="admin-textarea admin-wiki-page-md" spellcheck="false" rows="24" placeholder="Markdown 正文，对应 web/wiki/pages/&lt;slug&gt;.md" aria-label="本页正文"></textarea>
+</div>
 <textarea id="mdSource" class="admin-textarea" hidden aria-hidden="true" spellcheck="false" autocomplete="off"></textarea>
+</div>
+</div>
 </article>
 <article id="panelFeatures" class="admin-panel" hidden>
 <p class="admin-meta">自服务端读取 <code>web/features/features.json</code>，与官网展示一致；切换本页会重新拉取。</p>
