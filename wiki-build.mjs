@@ -233,7 +233,7 @@ export async function migrateChaptersToPageFiles(wikiDir) {
 }
 
 export function renderMarkdownToPage(slug, md) {
-  const raw = marked.parse(String(md || ""));
+  const raw = marked.parse(String(md || ""), { gfm: true, breaks: true });
   return addHeadingIdsToHtml(raw, slug);
 }
 

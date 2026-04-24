@@ -1,4 +1,4 @@
-html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-padding-top:96px}
+﻿html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-padding-top:96px}
 :root{color-scheme:dark;--bg0:#080a0f;--bg1:#0a0c12;--bg2:#0e1118;--page-bg:linear-gradient(180deg,#0e1118 0%,#0a0c12 50%,#06080e 100%);--line:rgba(255,255,255,.09);--gold:#f97316;--gold2:#fdba74;--text:#f4f4f8;--muted:#a8b0c0;--shadow:0 24px 80px rgba(0,0,0,.58),0 0 0 1px rgba(255,255,255,.03);--radius:18px;--max:1500px;--gutter:clamp(20px,4.5vw,56px);--ease:cubic-bezier(.2,.9,.2,1);--fs-display:clamp(2.45rem,5.6vw,4.1rem);--fs-section:clamp(28px,4vw,44px);--fs-subsection:clamp(22px,3.25vw,34px);--fs-lead:clamp(1.05rem,2vw,1.22rem);--fs-compact:clamp(0.94rem,1.5vw,1.0625rem);--fs-panel:clamp(17px,1.95vw,21px);--fs-strong:clamp(16px,1.8vw,18px);--fs-kicker:12px;--fs-button:15px;--fs-hint:13px;--nav-pad-left:calc(var(--gutter) + env(safe-area-inset-left,0px));scroll-behavior:smooth}
 @media (max-width:900px){:root{--nav-pad-left:max(16px,env(safe-area-inset-left,0px))}}
 *{box-sizing:border-box}
