@@ -45,6 +45,7 @@
 <li><button type="button" class="outline admin-nav__btn is-active" id="navWiki" data-panel="wiki">百科 Wiki</button></li>
 <li><button type="button" class="outline admin-nav__btn" id="navFeatures" data-panel="features">特色</button></li>
 <li><button type="button" class="outline admin-nav__btn" id="navJoinGuide" data-panel="joinGuide">加入指南</button></li>
+<li><button type="button" class="outline admin-nav__btn" id="navEvents" data-panel="events">事件</button></li>
 <li><button type="button" class="outline admin-nav__btn" id="navStaff" data-panel="staff">成员</button></li>
 <li><button type="button" class="outline admin-nav__btn" id="navSite" data-panel="site">站点图</button></li>
 </ul>
@@ -106,6 +107,36 @@
 </div>
 <div class="admin-split__preview">
 <iframe id="jgPreview" title="加入指南预览" src="/admin/preview-join-guide.html"></iframe>
+</div>
+</div>
+</article>
+<article id="panelEvents" class="admin-panel" hidden>
+<p class="admin-meta">写入 <code>web/events/events.json</code>。左侧按年浏览标题；右侧「索引」与下拉切换一致，仅当前条目展开编辑。</p>
+<div class="admin-ev-work">
+<aside class="admin-ev-browse" aria-label="事件标题浏览">
+<div id="evBrowseMount" class="admin-ev-browse__inner"></div>
+</aside>
+<div class="admin-ev-main">
+<div class="admin-ev-toolbar" id="evToolbar">
+<span class="admin-ev-toolbar__label">索引</span>
+<select id="evNavScope" aria-label="页眉或年份"></select>
+<select id="evNavMonth" aria-label="月份" hidden></select>
+<select id="evNavItem" aria-label="事件" hidden></select>
+</div>
+<div id="evHeaderBlock" class="admin-ev-header-block">
+<fieldset>
+<legend>页眉</legend>
+<label for="evSecTitle">主标题</label>
+<input type="text" id="evSecTitle" autocomplete="off" spellcheck="false"/>
+<label for="evSecSubtitle">副标题</label>
+<textarea id="evSecSubtitle" rows="2" spellcheck="false"></textarea>
+</fieldset>
+</div>
+<div id="evItemsMount" class="admin-ev-items"></div>
+<button type="button" class="outline secondary" id="evAddItem">添加事件</button>
+<p id="evSaveMsg" class="admin-msg" role="status"></p>
+<button type="button" id="evSaveBtn">保存</button>
+<button type="button" class="outline secondary" id="evReloadBtn">从服务端重新加载</button>
 </div>
 </div>
 </article>

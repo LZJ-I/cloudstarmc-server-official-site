@@ -590,15 +590,26 @@ async function boot() {
   } catch (err) {
     console.error(err);
   }
-  initRoutes(function () {
-    var wikiNodes = document.querySelectorAll("#view-wiki .reveal");
-    observeReveals(wikiNodes);
-    var delay = prefersReducedMotion ? 0 : 500;
-    window.setTimeout(function () {
-      wikiNodes.forEach(function (n) {
-        if (!n.classList.contains("is-visible")) n.classList.add("is-visible");
-      });
-    }, delay);
+  initRoutes(function (route) {
+    if (route === "wiki") {
+      var wikiNodes = document.querySelectorAll("#view-wiki .reveal");
+      observeReveals(wikiNodes);
+      var delay = prefersReducedMotion ? 0 : 500;
+      window.setTimeout(function () {
+        wikiNodes.forEach(function (n) {
+          if (!n.classList.contains("is-visible")) n.classList.add("is-visible");
+        });
+      }, delay);
+    } else if (route === "events") {
+      var evNodes = document.querySelectorAll("#view-events .reveal");
+      observeReveals(evNodes);
+      var delayEv = prefersReducedMotion ? 0 : 500;
+      window.setTimeout(function () {
+        evNodes.forEach(function (n) {
+          if (!n.classList.contains("is-visible")) n.classList.add("is-visible");
+        });
+      }, delayEv);
+    }
   });
   initHeroPhoto();
   initAtmosphere(prefersReducedMotion);
@@ -611,9 +622,11 @@ async function boot() {
   initFooterPiston();
   (function observeHomeRevealsOnly() {
     var wikiRoot = document.getElementById("view-wiki");
+    var eventsRoot = document.getElementById("view-events");
     var list = [];
     document.querySelectorAll(".reveal").forEach(function (n) {
       if (wikiRoot && wikiRoot.contains(n)) return;
+      if (eventsRoot && eventsRoot.contains(n)) return;
       list.push(n);
     });
     observeReveals(list);

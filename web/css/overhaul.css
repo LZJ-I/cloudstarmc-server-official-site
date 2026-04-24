@@ -10,7 +10,7 @@
   --ease-out:cubic-bezier(.22,1,.36,1);
 }
 
-html{scroll-padding-top:112px}
+html{scroll-padding-top:124px}
 
 ::selection{background:rgba(251,146,60,.35);color:#fff}
 
@@ -545,4 +545,167 @@ section#team.or-team-section{
   height:0 !important;
   margin:0 !important;
   background:none !important;
+}
+
+/* ---------- 事件时间轴 ---------- */
+.events-page{max-width:var(--max);margin:0 auto;padding:0 max(var(--gutter),16px) 56px}
+.events-timeline-wrap{margin-top:8px;padding-bottom:24px}
+.events-timeline{
+  position:relative;
+  margin:0;
+  padding:0 0 8px 0;
+  list-style:none;
+  display:flex;
+  flex-direction:column;
+  gap:0;
+}
+.events-timeline::before{
+  content:"";
+  position:absolute;
+  left:15px;
+  top:6px;
+  bottom:6px;
+  width:2px;
+  border-radius:1px;
+  background:linear-gradient(180deg,rgba(129,140,248,.45),rgba(251,146,60,.22),rgba(148,163,184,.12));
+  pointer-events:none;
+}
+@media (min-width:640px){
+  .events-timeline::before{left:19px}
+}
+.events-timeline__item{
+  position:relative;
+  display:grid;
+  grid-template-columns:32px 1fr;
+  gap:clamp(12px,3vw,20px);
+  padding:12px 0 20px;
+  align-items:start;
+}
+@media (min-width:640px){
+  .events-timeline__item{grid-template-columns:40px 1fr;padding:14px 0 28px}
+}
+.events-timeline__dot{
+  position:relative;
+  z-index:1;
+  justify-self:center;
+  width:12px;
+  height:12px;
+  margin-top:6px;
+  border-radius:50%;
+  background:rgba(148,163,184,.35);
+  border:2px solid rgba(15,17,24,.95);
+  box-shadow:0 0 0 1px rgba(255,255,255,.08);
+  flex-shrink:0;
+}
+.events-timeline__item--major .events-timeline__dot{
+  width:16px;
+  height:16px;
+  margin-top:4px;
+  background:linear-gradient(145deg,#fbbf24,#f97316);
+  box-shadow:0 0 0 2px rgba(15,17,24,.95),0 0 20px rgba(251,146,60,.35);
+  border-color:rgba(254,243,199,.4);
+}
+.events-timeline__card{
+  min-width:0;
+  padding:0 0 2px;
+  border-radius:12px;
+  background:rgba(255,255,255,.02);
+  border:1px solid rgba(255,255,255,.06);
+  padding:14px 16px 16px;
+  transition:background .2s var(--ease-out),border-color .2s var(--ease-out);
+}
+@media (prefers-reduced-motion:reduce){
+  .events-timeline__card{transition:none}
+}
+.events-timeline__item--major .events-timeline__card{
+  background:linear-gradient(155deg,rgba(251,146,60,.08),rgba(129,140,248,.06));
+  border-color:rgba(251,146,60,.2);
+}
+.events-timeline__card:focus-within{
+  border-color:rgba(251,146,60,.35);
+  outline:none;
+}
+.events-timeline__date{
+  display:block;
+  font-size:12px;
+  font-variant-numeric:tabular-nums;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  color:rgba(165,180,252,.88);
+  margin:0 0 6px;
+}
+.events-timeline__item--major .events-timeline__date{
+  color:rgba(253,224,171,.95);
+}
+.events-timeline__title{
+  margin:0 0 8px;
+  font-size:16px;
+  font-weight:650;
+  line-height:1.35;
+  color:rgba(241,245,249,.95);
+}
+.events-timeline__item--major .events-timeline__title{
+  font-size:clamp(22px,2.4vw,28px);
+  font-weight:800;
+  letter-spacing:-.02em;
+  background:linear-gradient(135deg,#fff 0%,#fde68a 40%,#fb923c 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+.events-timeline__body{
+  margin:0;
+  font-size:14px;
+  line-height:1.6;
+  color:rgba(203,213,225,.88);
+  max-width:65ch;
+}
+.events-timeline__item--major .events-timeline__body{
+  font-size:15px;
+  color:rgba(226,232,240,.9);
+}
+.events-timeline__item--minor .events-timeline__title{
+  font-size:15px;
+  font-weight:600;
+}
+.events-timeline__item--minor{
+  padding-top:4px;
+  padding-bottom:16px;
+}
+.events-timeline__item--minor .events-timeline__card{
+  padding:10px 14px 12px;
+  background:rgba(255,255,255,.015);
+}
+@media (max-width:639px){
+  .events-timeline__item--minor .events-timeline__dot{margin-top:8px}
+}
+
+.events-month-block{margin-bottom:8px}
+.events-month-heading{
+  margin:0 0 4px;
+  padding:6px 0 10px;
+  font-size:13px;
+  font-weight:800;
+  letter-spacing:.06em;
+  color:rgba(165,180,252,.88);
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+.events-month-heading--year{
+  margin-top:4px;
+  padding-top:14px;
+  font-size:clamp(17px,1.9vw,20px);
+  font-weight:800;
+  letter-spacing:.04em;
+  color:rgba(226,232,240,.95);
+  border-bottom-color:rgba(255,255,255,.1);
+}
+.events-month-heading--year:first-child{margin-top:0;padding-top:6px}
+.events-month-heading--month{
+  font-size:12px;
+  font-weight:700;
+  color:rgba(165,180,252,.78);
+}
+.events-month-heading--undated{font-size:13px}
+.events-month-block .events-timeline::before{
+  top:4px;
 }

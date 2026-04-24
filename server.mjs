@@ -60,6 +60,7 @@ adminExpress.use(
     webDir,
     featuresJsonPath: path.join(webDir, "features", "features.json"),
     joinGuideJsonPath: path.join(webDir, "join-guide", "join-guide.json"),
+    eventsJsonPath: path.join(webDir, "events", "events.json"),
     staffRootPath: path.join(webDir, "staff"),
     verifyUser,
     verifyPassword,
@@ -196,6 +197,17 @@ async function readJoinGuideJson() {
   }
 }
 
+async function readEventsJson() {
+  const p = path.join(webDir, "events", "events.json");
+  try {
+    const raw = (await fsp.readFile(p, "utf8")).replace(/^\uFEFF/, "");
+    JSON.parse(raw);
+    return raw;
+  } catch {
+    return "{}";
+  }
+}
+
 async function buildWikiPageJson() {
   const wikiDir = path.join(webDir, "wiki");
   const mdPath = path.join(wikiDir, "content.md");
@@ -320,6 +332,21 @@ const server = http.createServer(async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     try {
       const body = await buildWikiPageJson();
+      if (req.method === "HEAD") {
+        res.writeHead(200).end();
+        return;
+      }
+      res.writeHead(200).end(body);
+    } catch (e) {
+      res.writeHead(500).end(JSON.stringify({ error: String(e && e.message ? e.message : e) }));
+    }
+    return;
+  }
+  if (u.pathname === "/api/events") {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const body = await readEventsJson();
       if (req.method === "HEAD") {
         res.writeHead(200).end();
         return;

@@ -20,11 +20,13 @@ const logoutBtn = document.getElementById("logoutBtn");
 const navWiki = document.getElementById("navWiki");
 const navFeatures = document.getElementById("navFeatures");
 const navJoinGuide = document.getElementById("navJoinGuide");
+const navEvents = document.getElementById("navEvents");
 const navStaff = document.getElementById("navStaff");
 const navSite = document.getElementById("navSite");
 const panelWiki = document.getElementById("panelWiki");
 const panelFeatures = document.getElementById("panelFeatures");
 const panelJoinGuide = document.getElementById("panelJoinGuide");
+const panelEvents = document.getElementById("panelEvents");
 const panelStaff = document.getElementById("panelStaff");
 const panelSite = document.getElementById("panelSite");
 const feFormWrap = document.getElementById("feFormWrap");
@@ -89,6 +91,18 @@ const jgAddStep = document.getElementById("jgAddStep");
 const jgSaveBtn = document.getElementById("jgSaveBtn");
 const jgSaveMsg = document.getElementById("jgSaveMsg");
 const jgReloadBtn = document.getElementById("jgReloadBtn");
+const evSecTitle = document.getElementById("evSecTitle");
+const evSecSubtitle = document.getElementById("evSecSubtitle");
+const evItemsMount = document.getElementById("evItemsMount");
+const evAddItem = document.getElementById("evAddItem");
+const evSaveBtn = document.getElementById("evSaveBtn");
+const evSaveMsg = document.getElementById("evSaveMsg");
+const evReloadBtn = document.getElementById("evReloadBtn");
+const evHeaderBlock = document.getElementById("evHeaderBlock");
+const evBrowseMount = document.getElementById("evBrowseMount");
+const evNavScope = document.getElementById("evNavScope");
+const evNavMonth = document.getElementById("evNavMonth");
+const evNavItem = document.getElementById("evNavItem");
 
 const WIKI_UPLOAD_NAME_RE = /^[a-zA-Z0-9._-]+\.(png|jpe?g|gif|webp|svg|avif)$/i;
 
@@ -203,11 +217,13 @@ function setPanel(name) {
   navWiki.classList.toggle("is-active", name === "wiki");
   if (navFeatures) navFeatures.classList.toggle("is-active", name === "features");
   if (navJoinGuide) navJoinGuide.classList.toggle("is-active", name === "joinGuide");
+  if (navEvents) navEvents.classList.toggle("is-active", name === "events");
   if (navStaff) navStaff.classList.toggle("is-active", name === "staff");
   if (navSite) navSite.classList.toggle("is-active", name === "site");
   panelWiki.hidden = name !== "wiki";
   if (panelFeatures) panelFeatures.hidden = name !== "features";
   if (panelJoinGuide) panelJoinGuide.hidden = name !== "joinGuide";
+  if (panelEvents) panelEvents.hidden = name !== "events";
   if (panelStaff) panelStaff.hidden = name !== "staff";
   if (panelSite) panelSite.hidden = name !== "site";
   if (name === "features") {
@@ -215,6 +231,9 @@ function setPanel(name) {
   }
   if (name === "joinGuide") {
     void loadJoinGuideFromServer();
+  }
+  if (name === "events") {
+    void loadEventsFromServer();
   }
   if (name === "staff") {
     void loadStaffPanelFromServer();
@@ -495,6 +514,11 @@ if (navFeatures) {
 if (navJoinGuide) {
   navJoinGuide.addEventListener("click", () => {
     setPanel("joinGuide");
+  });
+}
+if (navEvents) {
+  navEvents.addEventListener("click", () => {
+    setPanel("events");
   });
 }
 if (navStaff) {
@@ -2011,6 +2035,523 @@ if (staffUploadPortrait) {
 }
 if (fePreview) {
   fePreview.addEventListener("load", () => postFeaturesPreview());
+}
+
+function newEventId() {
+  try {
+    const bytes = new Uint8Array(8);
+    crypto.getRandomValues(bytes);
+    let s = "";
+    for (const b of bytes) s += b.toString(16).padStart(2, "0");
+    return "evt-" + s;
+  } catch {
+    return "evt-" + String(Date.now()) + "-" + String(Math.random()).slice(2, 10);
+  }
+}
+
+function parseEventsJsonSafe(text) {
+  try {
+    return JSON.parse(String(text || "").replace(/^\uFEFF/, ""));
+  } catch {
+    return null;
+  }
+}
+
+function emptyEventItem() {
+  return { id: newEventId(), date: "", title: "", body: "", tier: "minor" };
+}
+
+function normalizeEventsData(raw) {
+  const o = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+  const section = o.section && typeof o.section === "object" ? o.section : {};
+  const title = section.title != null ? String(section.title) : "事件";
+  const subtitle = section.subtitle != null ? String(section.subtitle) : "";
+  const items = Array.isArray(o.items)
+    ? o.items.map((it) => {
+        const x = it && typeof it === "object" ? it : {};
+        const tier = String(x.tier || "minor").toLowerCase() === "major" ? "major" : "minor";
+        let id = x.id != null ? String(x.id).trim() : "";
+        if (!id) id = newEventId();
+        return {
+          id,
+          date: x.date != null ? String(x.date) : "",
+          title: x.title != null ? String(x.title) : "",
+          body: x.body != null ? String(x.body) : "",
+          tier,
+        };
+      })
+    : [];
+  return { section: { title, subtitle }, items };
+}
+
+function parseEventDateMsAdmin(s) {
+  const raw = String(s || "").trim();
+  if (!raw) return 0;
+  const t = Date.parse(raw + (raw.length <= 10 ? "T12:00:00" : ""));
+  return Number.isNaN(t) ? 0 : t;
+}
+
+function sortEventsItemsDesc(items) {
+  const arr = items.slice();
+  arr.sort((a, b) => {
+    const d = parseEventDateMsAdmin(a.date) - parseEventDateMsAdmin(b.date);
+    if (d !== 0) return -d;
+    return String(b.title || "").localeCompare(String(a.title || ""), "zh");
+  });
+  return arr;
+}
+
+function adminEvDomId(id) {
+  return "admin-ev-" + String(id || "").replace(/[^a-zA-Z0-9_-]/g, "_");
+}
+
+function evYmFromDateStr(date) {
+  const v = date != null ? String(date).trim() : "";
+  if (v.length >= 7) return v.slice(0, 7);
+  return "_";
+}
+
+function evYearKeyFromYm(ym) {
+  return ym === "_" ? "__" : ym.slice(0, 4);
+}
+
+function evMonthLabelZh(ym) {
+  if (ym === "_") return "无日期";
+  const m = parseInt(ym.slice(5, 7), 10);
+  return (Number.isFinite(m) ? m : "?") + "月";
+}
+
+function getEventsDomRows() {
+  const list = [];
+  if (!evItemsMount) return list;
+  evItemsMount.querySelectorAll(".admin-ev-item").forEach((det) => {
+    const id = det.dataset.eventId;
+    const dateEl = det.querySelector(".admin-ev-in-date");
+    const titleEl = det.querySelector(".admin-ev-in-title");
+    const date = dateEl && "value" in dateEl ? String(dateEl.value).trim() : "";
+    const title = titleEl && "value" in titleEl ? String(titleEl.value).trim() : "（无标题）";
+    const domId = det.id;
+    if (!domId) return;
+    const ym = evYmFromDateStr(date);
+    const y = evYearKeyFromYm(ym);
+    list.push({ det, id, date, title, domId, ym, y });
+  });
+  return list;
+}
+
+function rebuildEvNavSelects(prefs) {
+  if (!evNavScope || !evNavMonth || !evNavItem || !evItemsMount || !evHeaderBlock) return;
+  const rows = getEventsDomRows();
+  const prevScope = evNavScope.value;
+  const prevMonth = prefs && prefs.preferMonth != null ? prefs.preferMonth : evNavMonth.value;
+  const prevItem = prefs && prefs.preferItem != null ? prefs.preferItem : evNavItem.value;
+
+  const yearsSet = new Set();
+  rows.forEach((r) => yearsSet.add(r.y));
+  const years = Array.from(yearsSet).sort((a, b) => {
+    if (a === "__") return 1;
+    if (b === "__") return -1;
+    return String(b).localeCompare(String(a), "en");
+  });
+
+  evNavScope.textContent = "";
+  const oHead = document.createElement("option");
+  oHead.value = "__header__";
+  oHead.textContent = "页眉";
+  evNavScope.appendChild(oHead);
+  for (const y of years) {
+    const o = document.createElement("option");
+    o.value = "y:" + y;
+    o.textContent = y === "__" ? "日期待定" : y + "年";
+    evNavScope.appendChild(o);
+  }
+  if (prevScope && [...evNavScope.options].some((x) => x.value === prevScope)) {
+    evNavScope.value = prevScope;
+  } else {
+    evNavScope.value = "__header__";
+  }
+
+  evNavMonth.textContent = "";
+  evNavItem.textContent = "";
+  const sc = evNavScope.value;
+  if (sc === "__header__") {
+    evNavMonth.hidden = true;
+    evNavItem.hidden = true;
+    applyEvNavPanel();
+    return;
+  }
+
+  const yearKey = sc.slice(2);
+  const monthsSet = new Set();
+  rows.filter((r) => r.y === yearKey).forEach((r) => monthsSet.add(r.ym));
+  const months = Array.from(monthsSet).sort((a, b) => {
+    if (a === "_") return 1;
+    if (b === "_") return -1;
+    return String(b).localeCompare(String(a), "en");
+  });
+  for (const ym of months) {
+    const o = document.createElement("option");
+    o.value = "ym:" + ym;
+    o.textContent = evMonthLabelZh(ym);
+    evNavMonth.appendChild(o);
+  }
+  evNavMonth.hidden = months.length === 0;
+  if (prevMonth && [...evNavMonth.options].some((x) => x.value === prevMonth)) {
+    evNavMonth.value = prevMonth;
+  } else if (evNavMonth.options.length) {
+    evNavMonth.value = evNavMonth.options[0].value;
+  }
+
+  const mk = evNavMonth.value;
+  if (!mk || !mk.startsWith("ym:")) {
+    evNavItem.hidden = true;
+    applyEvNavPanel();
+    return;
+  }
+  const ymVal = mk.slice(3);
+  const inMonth = rows.filter((r) => r.ym === ymVal);
+  for (const r of inMonth) {
+    const o = document.createElement("option");
+    o.value = r.domId;
+    o.textContent = (r.date || "—") + " · " + r.title;
+    evNavItem.appendChild(o);
+  }
+  evNavItem.hidden = inMonth.length === 0;
+  if (prevItem && [...evNavItem.options].some((x) => x.value === prevItem)) {
+    evNavItem.value = prevItem;
+  } else if (evNavItem.options.length) {
+    evNavItem.value = evNavItem.options[0].value;
+  }
+  applyEvNavPanel();
+}
+
+function rebuildEvBrowseList() {
+  if (!evBrowseMount || !evNavScope) return;
+  evBrowseMount.textContent = "";
+  const hdr = document.createElement("button");
+  hdr.type = "button";
+  hdr.className = "admin-ev-browse-row";
+  hdr.textContent = "页眉";
+  if (evNavScope.value === "__header__") hdr.classList.add("is-active");
+  hdr.addEventListener("click", () => {
+    evNavScope.value = "__header__";
+    rebuildEvNavSelects();
+  });
+  evBrowseMount.appendChild(hdr);
+
+  const rows = getEventsDomRows();
+  const yearsSet = new Set();
+  rows.forEach((r) => yearsSet.add(r.y));
+  const years = Array.from(yearsSet).sort((a, b) => {
+    if (a === "__") return 1;
+    if (b === "__") return -1;
+    return String(b).localeCompare(String(a), "en");
+  });
+
+  const itemActive =
+    evNavScope.value !== "__header__" && evNavItem && !evNavItem.hidden ? evNavItem.value : "";
+
+  for (const y of years) {
+    const yl = document.createElement("div");
+    yl.className = "admin-ev-browse-year";
+    yl.textContent = y === "__" ? "日期待定" : y + "年";
+    evBrowseMount.appendChild(yl);
+
+    const inYear = rows.filter((r) => r.y === y);
+    inYear.sort((a, b) => {
+      const d = parseEventDateMsAdmin(a.date) - parseEventDateMsAdmin(b.date);
+      if (d !== 0) return -d;
+      return String(b.title || "").localeCompare(String(a.title || ""), "zh");
+    });
+    for (const r of inYear) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "admin-ev-browse-row";
+      b.textContent = r.title || "（无标题）";
+      if (itemActive && r.domId === itemActive) b.classList.add("is-active");
+      b.addEventListener("click", () => setEvNavToEventDomId(r.domId));
+      evBrowseMount.appendChild(b);
+    }
+  }
+}
+
+function applyEvNavPanel() {
+  if (!evHeaderBlock || !evItemsMount || !evNavScope) return;
+  if (evNavScope.value === "__header__") {
+    evHeaderBlock.hidden = false;
+    evItemsMount.hidden = true;
+    rebuildEvBrowseList();
+    return;
+  }
+  const itemId = evNavItem && !evNavItem.hidden && evNavItem.value;
+  evHeaderBlock.hidden = true;
+  evItemsMount.hidden = false;
+  evItemsMount.querySelectorAll(".admin-ev-item").forEach((det) => {
+    const show = !!itemId && det.id === itemId;
+    det.hidden = !show;
+  });
+  rebuildEvBrowseList();
+}
+
+function setEvNavToEventDomId(domId) {
+  if (!domId || !evNavScope) return;
+  const rows = getEventsDomRows();
+  const r = rows.find((x) => x.domId === domId);
+  if (!r) return;
+  evNavScope.value = "y:" + r.y;
+  rebuildEvNavSelects({ preferMonth: "ym:" + r.ym, preferItem: domId });
+}
+
+function bindEvItemLiveSummary(wrap, dateIn, titleIn, tierSel) {
+  const tierTag = wrap.querySelector(".admin-ev-item__tier-tag");
+  function upd() {
+    if (tierTag && tierSel && "value" in tierSel) {
+      tierTag.textContent = tierSel.value === "major" ? "大" : "小";
+    }
+    const id = wrap.id;
+    const rows = getEventsDomRows();
+    const r = rows.find((x) => x.domId === id);
+    if (r && evNavScope) {
+      evNavScope.value = "y:" + r.y;
+      rebuildEvNavSelects({ preferMonth: "ym:" + r.ym, preferItem: id });
+    } else {
+      rebuildEvNavSelects();
+    }
+  }
+  dateIn.addEventListener("input", upd);
+  titleIn.addEventListener("input", upd);
+  tierSel.addEventListener("change", upd);
+  upd();
+}
+
+function appendEventEditor(item) {
+  if (!evItemsMount) return;
+  const d = item || emptyEventItem();
+  const wrap = document.createElement("div");
+  wrap.className = "admin-ev-item";
+  wrap.dataset.eventId = d.id;
+  wrap.id = adminEvDomId(d.id);
+
+  const panel = document.createElement("div");
+  panel.className = "admin-ev-item__fields";
+
+  const headRow = document.createElement("div");
+  headRow.className = "admin-ev-item__head";
+  const tierTag = document.createElement("span");
+  tierTag.className = "admin-ev-item__tier-tag";
+  tierTag.setAttribute("aria-hidden", "true");
+  tierTag.textContent = d.tier === "major" ? "大" : "小";
+  const idSpan = document.createElement("span");
+  idSpan.className = "admin-muted admin-ev-item__id-mini";
+  idSpan.textContent = d.id;
+  const rm = document.createElement("button");
+  rm.type = "button";
+  rm.className = "outline secondary admin-ev-item__rm";
+  rm.textContent = "删除";
+  rm.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const wasActive = !wrap.hidden;
+    wrap.remove();
+    if (wasActive && evNavScope) {
+      evNavScope.value = "__header__";
+    }
+    rebuildEvNavSelects();
+  });
+  headRow.appendChild(tierTag);
+  headRow.appendChild(idSpan);
+  headRow.appendChild(rm);
+  panel.appendChild(headRow);
+
+  function addField(labelText, child) {
+    const lb = document.createElement("label");
+    lb.textContent = labelText;
+    lb.appendChild(child);
+    panel.appendChild(lb);
+    return child;
+  }
+
+  const dateIn = document.createElement("input");
+  dateIn.type = "text";
+  dateIn.className = "admin-ev-in-date";
+  dateIn.placeholder = "YYYY-MM-DD";
+  dateIn.spellcheck = false;
+  dateIn.autocomplete = "off";
+  dateIn.value = d.date;
+  addField("日期", dateIn);
+
+  const tierSel = document.createElement("select");
+  tierSel.className = "admin-ev-in-tier";
+  tierSel.innerHTML = "<option value=\"major\">大事件</option><option value=\"minor\">小事件</option>";
+  tierSel.value = d.tier === "major" ? "major" : "minor";
+  addField("类型", tierSel);
+
+  const titleIn = document.createElement("input");
+  titleIn.type = "text";
+  titleIn.className = "admin-ev-in-title";
+  titleIn.autocomplete = "off";
+  titleIn.value = d.title;
+  addField("标题", titleIn);
+
+  const bodyTa = document.createElement("textarea");
+  bodyTa.className = "admin-ev-in-body";
+  bodyTa.rows = 4;
+  bodyTa.spellcheck = false;
+  bodyTa.value = d.body;
+  addField("正文", bodyTa);
+
+  wrap.appendChild(panel);
+  evItemsMount.appendChild(wrap);
+  bindEvItemLiveSummary(wrap, dateIn, titleIn, tierSel);
+}
+
+function applyEventsDataToForm(data) {
+  if (!evSecTitle || !evSecSubtitle || !evItemsMount) return;
+  const n = normalizeEventsData(data);
+  evSecTitle.value = n.section.title;
+  evSecSubtitle.value = n.section.subtitle;
+  evItemsMount.innerHTML = "";
+  const items = sortEventsItemsDesc(n.items);
+  if (!items.length) {
+    appendEventEditor(emptyEventItem());
+  } else {
+    items.forEach((it) => appendEventEditor(it));
+  }
+  evNavScope.value = "__header__";
+  rebuildEvNavSelects();
+}
+
+function collectEventsFromForm() {
+  const section = {
+    title: evSecTitle ? evSecTitle.value.trim() : "",
+    subtitle: evSecSubtitle ? evSecSubtitle.value.trim() : "",
+  };
+  const rawItems = [];
+  if (evItemsMount) {
+    evItemsMount.querySelectorAll(".admin-ev-item").forEach((wrap) => {
+      let id = String(wrap.dataset.eventId || "").trim();
+      if (!id) id = newEventId();
+      const date = wrap.querySelector(".admin-ev-in-date");
+      const tierEl = wrap.querySelector(".admin-ev-in-tier");
+      const titleEl = wrap.querySelector(".admin-ev-in-title");
+      const bodyEl = wrap.querySelector(".admin-ev-in-body");
+      const dateVal = date && "value" in date ? String(date.value).trim() : "";
+      const tierRaw = tierEl && "value" in tierEl ? String(tierEl.value) : "minor";
+      const tier = tierRaw === "major" ? "major" : "minor";
+      const titleVal = titleEl && "value" in titleEl ? String(titleEl.value).trim() : "";
+      const bodyVal = bodyEl && "value" in bodyEl ? String(bodyEl.value) : "";
+      rawItems.push({ id, date: dateVal, title: titleVal, body: bodyVal, tier });
+    });
+  }
+  const items = sortEventsItemsDesc(
+    rawItems.filter((it) => it.date || it.title || String(it.body || "").trim())
+  );
+  return { section, items };
+}
+
+function eventsJsonPretty() {
+  return JSON.stringify(collectEventsFromForm(), null, 2) + "\n";
+}
+
+async function loadEventsFromServer() {
+  if (!evItemsMount) return;
+  const r = await fetch("/api/admin/events", { credentials: "include", cache: "no-store" });
+  if (r.status === 401) {
+    showLoginOnly();
+    return;
+  }
+  if (!r.ok) {
+    if (evSaveMsg) {
+      evSaveMsg.textContent = "无法加载 events.json";
+      evSaveMsg.className = "admin-msg is-bad";
+    }
+    return;
+  }
+  const data = await r.json().catch(() => ({}));
+  const raw = typeof data.content === "string" ? data.content : "";
+  const parsed = parseEventsJsonSafe(raw);
+  if (!parsed || typeof parsed !== "object") {
+    if (evSaveMsg) {
+      evSaveMsg.textContent = "服务端 JSON 无效，已用空白表单";
+      evSaveMsg.className = "admin-msg is-bad";
+    }
+    applyEventsDataToForm({ section: { title: "事件", subtitle: "" }, items: [] });
+    return;
+  }
+  if (evSaveMsg) {
+    evSaveMsg.textContent = "";
+    evSaveMsg.className = "admin-msg";
+  }
+  applyEventsDataToForm(parsed);
+}
+
+let evSaveInFlight = false;
+if (evSaveBtn) {
+  evSaveBtn.addEventListener("click", async () => {
+    if (evSaveInFlight) return;
+    evSaveInFlight = true;
+    if (evSaveMsg) {
+      evSaveMsg.textContent = "保存中…";
+      evSaveMsg.className = "admin-msg";
+    }
+    evSaveBtn.disabled = true;
+    try {
+      const r = await fetch("/api/admin/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+        credentials: "include",
+        cache: "no-store",
+        body: JSON.stringify({ content: eventsJsonPretty() }),
+      });
+      if (r.status === 401) {
+        showLoginOnly();
+        return;
+      }
+      if (!r.ok) {
+        let msg = "保存失败";
+        try {
+          const j = await r.json();
+          if (j && j.error) msg = j.error;
+        } catch {}
+        if (evSaveMsg) {
+          evSaveMsg.textContent = msg;
+          evSaveMsg.className = "admin-msg is-bad";
+        }
+        return;
+      }
+      if (evSaveMsg) {
+        evSaveMsg.textContent = "已保存";
+        evSaveMsg.className = "admin-msg is-ok";
+      }
+    } catch (e) {
+      if (evSaveMsg) {
+        evSaveMsg.textContent = "保存失败：" + String((e && e.message) || e);
+        evSaveMsg.className = "admin-msg is-bad";
+      }
+    } finally {
+      evSaveInFlight = false;
+      evSaveBtn.disabled = false;
+    }
+  });
+}
+if (evReloadBtn) {
+  evReloadBtn.addEventListener("click", () => void loadEventsFromServer());
+}
+if (evAddItem) {
+  evAddItem.addEventListener("click", () => {
+    appendEventEditor(emptyEventItem());
+    const last = evItemsMount && evItemsMount.querySelector(".admin-ev-item:last-of-type");
+    if (last && last.id) setEvNavToEventDomId(last.id);
+  });
+}
+if (evNavScope) {
+  evNavScope.addEventListener("change", () => rebuildEvNavSelects());
+}
+if (evNavMonth) {
+  evNavMonth.addEventListener("change", () => rebuildEvNavSelects());
+}
+if (evNavItem) {
+  evNavItem.addEventListener("change", () => applyEvNavPanel());
 }
 
 const SITE_ASSET_NAMES = {

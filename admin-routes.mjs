@@ -1,4 +1,4 @@
-﻿import crypto from "node:crypto";
+import crypto from "node:crypto";
 import express from "express";
 import multer from "multer";
 import session from "express-session";
@@ -50,11 +50,12 @@ function sniffImageMime(buf) {
 }
 
 export function createAdminRouter(options) {
-  const { wikiMdPath, featuresJsonPath, joinGuideJsonPath, staffRootPath, webDir, verifyUser, verifyPassword, sessionMaxMs } = options;
+  const { wikiMdPath, featuresJsonPath, joinGuideJsonPath, eventsJsonPath, staffRootPath, webDir, verifyUser, verifyPassword, sessionMaxMs } = options;
   const wikiMdResolved = path.resolve(wikiMdPath);
   const wikiUploadDir = path.resolve(path.join(path.dirname(wikiMdResolved), "uploads"));
   const featuresJsonResolved = featuresJsonPath ? path.resolve(featuresJsonPath) : null;
   const joinGuideJsonResolved = joinGuideJsonPath ? path.resolve(joinGuideJsonPath) : null;
+  const eventsJsonResolved = eventsJsonPath ? path.resolve(eventsJsonPath) : null;
   const staffRootResolved = staffRootPath ? path.resolve(staffRootPath) : null;
   const webDirResolved = webDir ? path.resolve(webDir) : path.resolve(path.join(path.dirname(wikiMdResolved), ".."));
   void fsp.mkdir(wikiUploadDir, { recursive: true }).catch(() => {});
@@ -472,6 +473,44 @@ export function createAdminRouter(options) {
     };
     router.put("/join-guide", requireAdmin, jsonMid, putJoinGuide);
     router.post("/join-guide", requireAdmin, jsonMid, putJoinGuide);
+  }
+
+  if (eventsJsonResolved) {
+    router.get("/events", requireAdmin, async (req, res) => {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store");
+      try {
+        let content = "";
+        try {
+          content = await fsp.readFile(eventsJsonResolved, "utf8");
+        } catch {}
+        return res.json({ content });
+      } catch (e) {
+        return res.status(500).json({ error: String((e && e.message) || e) });
+      }
+    });
+
+    const putEvents = async (req, res) => {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store");
+      try {
+        const body = req.body;
+        if (!body || typeof body.content !== "string") {
+          return res.status(400).json({ error: "missing content" });
+        }
+        JSON.parse(String(body.content).replace(/^\uFEFF/, ""));
+        await fsp.mkdir(path.dirname(eventsJsonResolved), { recursive: true });
+        await fsp.writeFile(eventsJsonResolved, body.content, "utf8");
+        return res.json({ ok: true });
+      } catch (e) {
+        if (e instanceof SyntaxError) {
+          return res.status(400).json({ error: "不是合法 JSON：" + String((e && e.message) || e) });
+        }
+        return res.status(500).json({ error: String((e && e.message) || e) });
+      }
+    };
+    router.put("/events", requireAdmin, jsonMid, putEvents);
+    router.post("/events", requireAdmin, jsonMid, putEvents);
   }
 
   if (staffRootResolved) {

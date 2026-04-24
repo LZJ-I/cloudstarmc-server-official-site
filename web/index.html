@@ -14,7 +14,7 @@
 <meta property="og:site_name" content="云星"/>
 <meta property="og:description" content="自定义内容、稳定联机与活跃社区。复制 IP 加入 cloudstarmc.cn"/>
 <link rel="stylesheet" href="https://use.typekit.net/bhe1eni.css"/>
-<link rel="stylesheet" href="css/style.css?v=20260423"/><link rel="stylesheet" href="css/overhaul.css?v=20260423"/>
+<link rel="stylesheet" href="css/style.css?v=20260429"/><link rel="stylesheet" href="css/overhaul.css?v=20260429"/>
 </head>
 <body class="font-proxima is-booting">
 <div id="page-loader" class="page-loader" aria-busy="true" aria-live="polite" role="status">
@@ -52,6 +52,7 @@
 <div class="nav__primary">
 <a href="/home" class="nav__route nav__route--main is-active" data-route="home" aria-current="page">主页</a>
 <a href="/wiki" class="nav__route nav__route--main" data-route="wiki" aria-current="false">百科</a>
+<a href="/events" class="nav__route nav__route--main" data-route="events" aria-current="false">事件</a>
 </div>
 <div class="nav__sub-slot" id="navSubSlot" aria-live="polite">
 <div id="navWikiAnchors" class="nav__sub nav__sub--wiki" aria-hidden="true"></div>
@@ -66,10 +67,15 @@
 <main class="app-main view-state--home" id="app-main">
 <div id="view-home" class="view view--home view--active"></div>
 <div id="view-wiki" class="view view--wiki"></div>
+<div id="view-events" class="view view--events"></div>
 </main>
 <aside id="wikiTocPanel" class="wiki-toc" aria-label="本页目录" hidden>
 <div class="wiki-toc__title">目录</div>
 <nav class="wiki-toc__list" id="wikiTocNav"></nav>
+</aside>
+<aside id="eventsTocPanel" class="wiki-toc wiki-toc--events" aria-label="事件索引" hidden>
+<div class="wiki-toc__title">索引</div>
+<nav class="wiki-toc__list wiki-toc__list--events" id="eventsTocNav"></nav>
 </aside>
 <footer class="footer"><div class="footer__inner"><div class="footer__row"><span>© 云星 Cloud Star Realms</span><div class="footer__links"><a href="#">反馈</a></div></div></div></footer>
 <script type="module" src="js/main.js"></script>
