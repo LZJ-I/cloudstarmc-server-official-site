@@ -446,7 +446,7 @@ html.is-booting,body.is-booting{overflow:hidden;height:100%}
 .or-team__name{font-weight:900;letter-spacing:-.02em;line-height:1.15}
 .or-team__title-pill{display:inline-flex;align-items:center;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);font-size:var(--fs-button);font-weight:700;color:rgba(226,232,240,.92)}
 .or-team__title-text{line-height:1.2}
-.or-team__bio{margin:0;font-size:var(--fs-lead);line-height:1.65;color:rgba(226,232,240,.82)}
+.or-team__bio{margin:0;font-size:var(--fs-lead);line-height:1.65;color:rgba(226,232,240,.82);white-space:pre-line}
 .or-team__controls{grid-column:auto;grid-row:auto;place-self:auto;z-index:3;position:relative;display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;column-gap:8px;margin:0 auto;padding:4px 0;max-width:min(100%,480px);width:100%;min-width:0;box-sizing:border-box;transform:none}
 @media (min-width:901px){.or-team__controls{margin-top:auto;margin-bottom:0;margin-left:auto;margin-right:auto}}
 .or-team__controls[data-or-team-controls="compact"]{display:flex;align-items:center;justify-content:center;gap:8px;grid-template-columns:none}

@@ -2,6 +2,7 @@ const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)
 const OR_TEAM_TICK_MS = 8000;
 const OR_TEAM_PROGRESS_STEP_MS = 80;
 const OR_TEAM_XF_DONE_MS = 560;
+const OR_TEAM_STACK_H_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 var STAFF_TPL_HEAD = "/staff/_template/head.png";
 var STAFF_TPL_PORTRAIT = "/staff/_template/portrait.png";
 function staffAssetUrl(memberId, file) {
@@ -29,6 +30,66 @@ function staffHeadUrl(id, headFile) {
 function staffPortraitUrl(id, portraitFile) {
   return staffAssetUrl(id, portraitFile || "portrait.png");
 }
+function measureTeamSlidePaneNaturalHeight(el, widthPx) {
+  if (!el || widthPx < 8) return 0;
+  var st = el.style;
+  function snap() {
+    return {
+      boxSizing: st.boxSizing,
+      position: st.position,
+      inset: st.inset,
+      top: st.top,
+      right: st.right,
+      bottom: st.bottom,
+      left: st.left,
+      width: st.width,
+      maxWidth: st.maxWidth,
+      height: st.height,
+      visibility: st.visibility,
+      pointerEvents: st.pointerEvents
+    };
+  }
+  function restore(p) {
+    st.boxSizing = p.boxSizing;
+    st.position = p.position;
+    if (p.inset) st.inset = p.inset;
+    else st.removeProperty("inset");
+    if (p.top) st.top = p.top;
+    else st.removeProperty("top");
+    if (p.right) st.right = p.right;
+    else st.removeProperty("right");
+    if (p.bottom) st.bottom = p.bottom;
+    else st.removeProperty("bottom");
+    if (p.left) st.left = p.left;
+    else st.removeProperty("left");
+    if (p.width) st.width = p.width;
+    else st.removeProperty("width");
+    if (p.maxWidth) st.maxWidth = p.maxWidth;
+    else st.removeProperty("max-width");
+    if (p.height) st.height = p.height;
+    else st.removeProperty("height");
+    if (p.visibility) st.visibility = p.visibility;
+    else st.removeProperty("visibility");
+    if (p.pointerEvents) st.pointerEvents = p.pointerEvents;
+    else st.removeProperty("pointer-events");
+  }
+  var prev = snap();
+  st.boxSizing = "border-box";
+  st.removeProperty("inset");
+  st.position = "fixed";
+  st.top = "0";
+  st.left = "-9999px";
+  st.right = "auto";
+  st.bottom = "auto";
+  st.width = widthPx + "px";
+  st.maxWidth = widthPx + "px";
+  st.height = "auto";
+  st.visibility = "hidden";
+  st.pointerEvents = "none";
+  var h = Math.ceil(el.getBoundingClientRect().height);
+  restore(prev);
+  return Math.max(h, 0);
+}
 
 export function initOriginTeam(orStaff) {
   if (!orStaff || !orStaff.length) return;
@@ -43,6 +104,7 @@ export function initOriginTeam(orStaff) {
   var prevBtn = document.getElementById("orTeamPrev");
   var nextBtn = document.getElementById("orTeamNext");
   if (!parchment || !subtitle || !slide0 || !slide1 || !strip || !photo0 || !photo1 || !progress) return;
+  var slideStack = document.getElementById("orTeamSlideStack");
   var track = document.getElementById("orTeamTrack");
   if (!track) {
     track = document.createElement("div");
@@ -162,6 +224,27 @@ export function initOriginTeam(orStaff) {
       window.clearTimeout(xfTimer);
       xfTimer = null;
     }
+  }
+  function clearTeamStackHeight(el) {
+    if (!el) return;
+    el.style.height = "";
+    el.style.overflow = "";
+    el.style.transition = "";
+    if (el._orTeamHEnd) {
+      el.removeEventListener("transitionend", el._orTeamHEnd);
+      delete el._orTeamHEnd;
+    }
+    if (el._orTeamHFallback) {
+      window.clearTimeout(el._orTeamHFallback);
+      delete el._orTeamHFallback;
+    }
+  }
+  function wantsTeamStackHeightTween(el) {
+    return (
+      el &&
+      typeof window.matchMedia !== "undefined" &&
+      window.matchMedia("(max-width: 900px)").matches
+    );
   }
   function setSlidePane(el, s) {
     el.className = "or-team__slide-pane or-team__slide-pane--" + s;
@@ -342,6 +425,7 @@ export function initOriginTeam(orStaff) {
   function crossfadeTo(memberIdx, xfDir) {
     clearXfTimer();
     finalizeIfAnimating();
+    clearTeamStackHeight(slideStack);
     if (teamGrid && xfDir) teamGrid.setAttribute("data-or-team-dir", xfDir);
     xfSeq += 1;
     var seq = xfSeq;
@@ -358,6 +442,16 @@ export function initOriginTeam(orStaff) {
       shown = incoming;
       return;
     }
+    var stackTween = null;
+    if (slideStack && wantsTeamStackHeightTween(slideStack)) {
+      var wSt = Math.round(slideStack.clientWidth || slideStack.offsetWidth);
+      var h0 = Math.round(slideStack.getBoundingClientRect().height);
+      var h1 = measureTeamSlidePaneNaturalHeight(slides[incoming], wSt);
+      if (h1 < 1) h1 = h0;
+      if (Math.abs(h1 - h0) >= 2) {
+        stackTween = { h0: h0, h1: h1 };
+      }
+    }
     void slides[outgoing].offsetWidth;
     void slides[incoming].offsetWidth;
     void photos[outgoing].offsetWidth;
@@ -369,6 +463,21 @@ export function initOriginTeam(orStaff) {
         setSlidePane(slides[incoming], "in");
         setPortraitPane(photos[outgoing], "out");
         setPortraitPane(photos[incoming], "in");
+        if (stackTween && slideStack) {
+          slideStack.style.overflow = "hidden";
+          slideStack.style.transition = "none";
+          slideStack.style.height = stackTween.h0 + "px";
+          void slideStack.offsetHeight;
+          slideStack.style.transition =
+            "height " + OR_TEAM_XF_DONE_MS / 1000 + "s " + OR_TEAM_STACK_H_EASE;
+          requestAnimationFrame(function () {
+            if (seq !== xfSeq) {
+              clearTeamStackHeight(slideStack);
+              return;
+            }
+            slideStack.style.height = stackTween.h1 + "px";
+          });
+        }
         xfTimer = window.setTimeout(function () {
           xfTimer = null;
           if (seq !== xfSeq) return;
@@ -377,6 +486,7 @@ export function initOriginTeam(orStaff) {
           setPortraitPane(photos[outgoing], "wait");
           setPortraitPane(photos[incoming], "current");
           shown = incoming;
+          clearTeamStackHeight(slideStack);
         }, OR_TEAM_XF_DONE_MS);
       });
     });
