@@ -564,6 +564,27 @@ section#team.or-team-section{
   pointer-events:none;z-index:0;
 }
 #view-events .events-hero .wiki-hero__inner{position:relative;z-index:1}
+#view-wiki .section.wiki-hero:first-child:not(:has(.wiki-hero__visual)){
+  position:relative;isolation:isolate;padding-bottom:clamp(8px,2vw,24px);
+}
+#view-wiki .section.wiki-hero:first-child:not(:has(.wiki-hero__visual))::after{
+  content:"";
+  position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+  width:min(100%,640px);height:1px;
+  background:linear-gradient(90deg,transparent,rgba(129,140,248,.3),rgba(251,146,60,.2),transparent);
+  pointer-events:none;z-index:0;
+}
+#view-wiki .section.wiki-hero:first-child:not(:has(.wiki-hero__visual)) .wiki-hero__inner{position:relative;z-index:1}
+#view-wiki .section.wiki-hero:first-child:has(.wiki-hero__visual) .wiki-hero__copy{
+  position:relative;padding-bottom:clamp(16px,2.5vw,24px);
+}
+#view-wiki .section.wiki-hero:first-child:has(.wiki-hero__visual) .wiki-hero__copy::after{
+  content:"";
+  position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+  width:min(100%,640px);height:1px;
+  background:linear-gradient(90deg,transparent,rgba(129,140,248,.3),rgba(251,146,60,.2),transparent);
+  pointer-events:none;
+}
 .events-page{max-width:var(--max);margin:0 auto;padding:0 max(var(--gutter),16px) 56px}
 .events-page__empty{
   margin:clamp(12px,3vw,28px) auto 0;max-width:min(40em,92vw);

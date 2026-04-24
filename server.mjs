@@ -1,5 +1,4 @@
 import http from "node:http";
-import crypto from "node:crypto";
 import { existsSync } from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
@@ -7,6 +6,7 @@ import url from "node:url";
 import express from "express";
 import { marked } from "marked";
 import { createAdminRouter } from "./admin-routes.mjs";
+import { createAuthStore } from "./admin-auth-store.mjs";
 
 marked.setOptions({ gfm: true, breaks: true });
 
@@ -16,31 +16,11 @@ const WEB_ROOT = existsSync(path.join(webDir, "index.html")) ? webDir : __dirnam
 const PORT = Number(process.env.PORT || 8080); // port
 const HOST = process.env.HOST || "0.0.0.0";
 
-const ADMIN_USER = "zxcvbnm";
-const PW_SCRYPT_SALT = Buffer.from("wiki-admin-pw-v1", "utf8");
-const PW_HASH_HEX =
-  "57817384768e87b5f3b32731e95efa08acbc0e0e3d6f1e754e9b1bfc54a1294e750600ff3d1b7096e6d774f4f98e79f003c7873e819166b75a194a5df7fb4438";
 const SESSION_MAX_MS = 48 * 60 * 60 * 1000;
 const WIKI_MD = path.join(webDir, "wiki", "content.md");
-
-function verifyPassword(pw) {
-  let h;
-  try {
-    h = crypto.scryptSync(String(pw), PW_SCRYPT_SALT, 64);
-  } catch {
-    return false;
-  }
-  const expected = Buffer.from(PW_HASH_HEX, "hex");
-  if (h.length !== expected.length) return false;
-  return crypto.timingSafeEqual(h, expected);
-}
-
-function verifyUser(u) {
-  const a = Buffer.from(String(u || ""), "utf8");
-  const b = Buffer.from(ADMIN_USER, "utf8");
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
-}
+const dataDir = path.join(__dirname, "data");
+void fsp.mkdir(dataDir, { recursive: true }).catch(() => {});
+const authStore = createAuthStore({ dataDir });
 
 const adminExpress = express();
 adminExpress.set("trust proxy", 1);
@@ -55,16 +35,16 @@ adminExpress.use((req, res, next) => {
 });
 adminExpress.use(
   "/api/admin",
-  createAdminRouter({
+    createAdminRouter({
     wikiMdPath: WIKI_MD,
     webDir,
     featuresJsonPath: path.join(webDir, "features", "features.json"),
     joinGuideJsonPath: path.join(webDir, "join-guide", "join-guide.json"),
     eventsJsonPath: path.join(webDir, "events", "events.json"),
     staffRootPath: path.join(webDir, "staff"),
-    verifyUser,
-    verifyPassword,
+    authStore,
     sessionMaxMs: SESSION_MAX_MS,
+    auditLogPath: path.join(dataDir, "admin-audit.jsonl"),
   })
 );
 

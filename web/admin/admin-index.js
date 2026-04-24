@@ -16,7 +16,28 @@ const loginPanel = document.getElementById("loginPanel");
 const appPanel = document.getElementById("appPanel");
 const loginForm = document.getElementById("loginForm");
 const loginErr = document.getElementById("loginErr");
+const preflightErr = document.getElementById("preflightErr");
+const initialBlock = document.getElementById("initialBlock");
+const initialForm = document.getElementById("initialForm");
+const initialErr = document.getElementById("initialErr");
+const sessionUserLabel = document.getElementById("sessionUserLabel");
 const logoutBtn = document.getElementById("logoutBtn");
+const changePwdForm = document.getElementById("changePwdForm");
+const chPwdMsg = document.getElementById("chPwdMsg");
+const admSuperBlock = document.getElementById("admSuperBlock");
+const navAdmins = document.getElementById("navAdmins");
+const panelAdmins = document.getElementById("panelAdmins");
+const admListMount = document.getElementById("admListMount");
+const admListMsg = document.getElementById("admListMsg");
+const admNewUser = document.getElementById("admNewUser");
+const admNewPass = document.getElementById("admNewPass");
+const admAddBtn = document.getElementById("admAddBtn");
+const admAuditRefresh = document.getElementById("admAuditRefresh");
+const admAuditUserFilter = document.getElementById("admAuditUserFilter");
+const admAuditClearFilter = document.getElementById("admAuditClearFilter");
+const admAuditMount = document.getElementById("admAuditMount");
+const SUPER_ADMIN = "3158299835";
+let sessionIsSuper = false;
 const navWiki = document.getElementById("navWiki");
 const navFeatures = document.getElementById("navFeatures");
 const navJoinGuide = document.getElementById("navJoinGuide");
@@ -109,6 +130,8 @@ const WIKI_UPLOAD_NAME_RE = /^[a-zA-Z0-9._-]+\.(png|jpe?g|gif|webp|svg|avif)$/i;
 let siteImgV = Date.now();
 
 function showLoginOnly() {
+  sessionIsSuper = false;
+  updateSuperNav();
   loginPanel.hidden = false;
   appPanel.hidden = true;
 }
@@ -116,6 +139,81 @@ function showLoginOnly() {
 function showApp() {
   loginPanel.hidden = true;
   appPanel.hidden = false;
+}
+
+function setInitialLoginDisabled(d) {
+  if (loginForm) {
+    const btn = loginForm.querySelector('button[type="submit"]');
+    if (btn) btn.disabled = !!d;
+  }
+  if (initialForm) {
+    const b = initialForm.querySelector('button[type="submit"]');
+    if (b) b.disabled = !!d;
+  }
+}
+
+function updateSuperNav() {
+  if (navAdmins) navAdmins.hidden = false;
+}
+
+function syncAdminsPanelMode() {
+  if (admSuperBlock) admSuperBlock.hidden = !sessionIsSuper;
+}
+
+async function applyPreflight() {
+  if (preflightErr) {
+    preflightErr.hidden = true;
+    preflightErr.textContent = "";
+  }
+  let j = {};
+  try {
+    const r = await fetch("/api/admin/preflight", { credentials: "same-origin" });
+    j = await r.json().catch(() => ({}));
+  } catch (e) {
+    if (preflightErr) {
+      preflightErr.textContent = String((e && e.message) || e);
+      preflightErr.hidden = false;
+    }
+    return;
+  }
+  if (!j.encryptionOk) {
+    if (preflightErr) {
+      preflightErr.textContent = j.error || "无法初始化后台";
+      preflightErr.hidden = false;
+    }
+    if (initialBlock) initialBlock.hidden = true;
+    if (loginForm) loginForm.hidden = false;
+    setInitialLoginDisabled(true);
+    return;
+  }
+  if (j.error) {
+    if (preflightErr) {
+      preflightErr.textContent = j.error;
+      preflightErr.hidden = false;
+    }
+    if (initialBlock) initialBlock.hidden = true;
+    if (loginForm) loginForm.hidden = false;
+    setInitialLoginDisabled(true);
+    return;
+  }
+  setInitialLoginDisabled(false);
+  const needInit = j.needsInitialSetup === true;
+  if (initialBlock) initialBlock.hidden = !needInit;
+  if (loginForm) loginForm.hidden = needInit;
+}
+
+async function refreshSessionUser() {
+  if (!sessionUserLabel) return;
+  sessionUserLabel.textContent = "";
+  sessionIsSuper = false;
+  const r = await fetch("/api/admin/session", { credentials: "include" });
+  if (!r.ok) return;
+  const j = await r.json().catch(() => ({}));
+  const u = j && j.user ? String(j.user).trim() : "";
+  if (u) sessionUserLabel.textContent = "（" + u + "）";
+  sessionIsSuper = j && j.isSuper === true;
+  updateSuperNav();
+  syncAdminsPanelMode();
 }
 
 async function sessionOk() {
@@ -213,18 +311,255 @@ function copyWithExecCommand(text) {
   return ok;
 }
 
+async function loadAdminsPanel() {
+  syncAdminsPanelMode();
+  await loadAuditLogs();
+  if (!sessionIsSuper || !admListMount) {
+    if (admListMsg) {
+      admListMsg.textContent = "";
+      admListMsg.className = "admin-msg";
+    }
+    if (admListMount) admListMount.innerHTML = "";
+    return;
+  }
+  if (admListMsg) {
+    admListMsg.textContent = "";
+    admListMsg.className = "admin-msg";
+  }
+  const r = await fetch("/api/admin/accounts", { credentials: "include" });
+  if (r.status === 401) {
+    showLoginOnly();
+    return;
+  }
+  if (r.status === 403) {
+    if (admListMsg) {
+      admListMsg.textContent = "无权限";
+      admListMsg.className = "admin-msg is-bad";
+    }
+    return;
+  }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    if (admListMsg) {
+      admListMsg.textContent = String((j && j.error) || "加载失败");
+      admListMsg.className = "admin-msg is-bad";
+    }
+    return;
+  }
+  const users = Array.isArray(j.users) ? j.users : [];
+  renderAdminsList(users);
+}
+
+function formatTimeChinaShanghai(value) {
+  if (value == null || value === "") return "—";
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) return String(value);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  const o = {};
+  for (const x of parts) {
+    if (x.type !== "literal") o[x.type] = x.value;
+  }
+  if (o.year == null) {
+    return d.toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false });
+  }
+  return `${o.year}年${o.month}月${o.day}日 ${o.hour}:${o.minute}:${o.second}`;
+}
+
+function renderAuditEntries(entries) {
+  if (!admAuditMount) return;
+  admAuditMount.innerHTML = "";
+  if (!entries || !entries.length) {
+    const p = document.createElement("p");
+    p.className = "admin-muted";
+    p.textContent = "暂无记录";
+    admAuditMount.appendChild(p);
+    return;
+  }
+  const tbl = document.createElement("table");
+  tbl.className = "admin-audit-table";
+  const thead = document.createElement("thead");
+  const hr = document.createElement("tr");
+  for (const h of ["时间", "账号", "类型", "说明", "HTTP", "路径", "状态", "耗时"]) {
+    const th = document.createElement("th");
+    th.textContent = h;
+    hr.appendChild(th);
+  }
+  thead.appendChild(hr);
+  tbl.appendChild(thead);
+  const tb = document.createElement("tbody");
+  for (const e of entries) {
+    const tr = document.createElement("tr");
+    const t = formatTimeChinaShanghai(e.t);
+    const user = e.user != null ? String(e.user) : "";
+    const op = e.op != null ? String(e.op) : "—";
+    let summary = "";
+    if (e.summary != null && e.summary !== "") {
+      summary = String(e.summary);
+    } else if (e.action) {
+      summary = String(e.action);
+    } else {
+      summary = [e.method, e.path].filter(Boolean).join(" ");
+    }
+    const method = e.method != null ? String(e.method) : "";
+    const pth = e.path != null ? String(e.path) : "";
+    const status = e.status != null ? String(e.status) : "";
+    const ms = e.ms != null && e.ms !== "" ? String(e.ms) + "ms" : "";
+    for (const v of [t, user, op, summary, method, pth, status, ms]) {
+      const td = document.createElement("td");
+      td.textContent = v;
+      tr.appendChild(td);
+    }
+    tb.appendChild(tr);
+  }
+  tbl.appendChild(tb);
+  admAuditMount.appendChild(tbl);
+}
+
+async function loadAuditLogs() {
+  if (!admAuditMount) return;
+  const qs = new URLSearchParams();
+  qs.set("limit", "200");
+  if (admAuditUserFilter) {
+    const f = String(admAuditUserFilter.value || "").trim();
+    if (f) qs.set("user", f);
+  }
+  const r = await fetch("/api/admin/audit-logs?" + qs.toString(), { credentials: "include" });
+  if (r.status === 401) {
+    showLoginOnly();
+    return;
+  }
+  if (r.status === 403) {
+    admAuditMount.textContent = "";
+    const p = document.createElement("p");
+    p.className = "admin-msg is-bad";
+    p.textContent = "无权限";
+    admAuditMount.appendChild(p);
+    return;
+  }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    admAuditMount.textContent = "";
+    const p = document.createElement("p");
+    p.className = "admin-msg is-bad";
+    p.textContent = String((j && j.error) || "加载失败");
+    admAuditMount.appendChild(p);
+    return;
+  }
+  const entries = Array.isArray(j.entries) ? j.entries : [];
+  renderAuditEntries(entries);
+}
+
+function renderAdminsList(users) {
+  if (!admListMount) return;
+  admListMount.innerHTML = "";
+  for (const name of users) {
+    const row = document.createElement("div");
+    row.className = "admin-admins-row";
+    const nm = document.createElement("span");
+    nm.className = "admin-admins-row__name";
+    nm.textContent = name;
+    row.appendChild(nm);
+    if (name === SUPER_ADMIN) {
+      const tag = document.createElement("span");
+      tag.className = "admin-admins-row__tag";
+      tag.textContent = "主管理员";
+      row.appendChild(tag);
+    }
+    const passIn = document.createElement("input");
+    passIn.type = "password";
+    passIn.placeholder = "新密码";
+    passIn.autocomplete = "new-password";
+    passIn.minLength = 8;
+    passIn.style.maxWidth = "12rem";
+    const btnCh = document.createElement("button");
+    btnCh.type = "button";
+    btnCh.className = "outline secondary";
+    btnCh.textContent = "改密";
+    btnCh.addEventListener("click", () => {
+      const pw = String(passIn.value || "");
+      if (pw.length < 8) {
+        if (admListMsg) {
+          admListMsg.textContent = "密码至少 8 位";
+          admListMsg.className = "admin-msg is-bad";
+        }
+        return;
+      }
+      void (async () => {
+        const r = await fetch("/api/admin/accounts/" + encodeURIComponent(name), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ password: pw }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          if (admListMsg) {
+            admListMsg.textContent = String((j && j.error) || "失败");
+            admListMsg.className = "admin-msg is-bad";
+          }
+          return;
+        }
+        passIn.value = "";
+        if (admListMsg) {
+          admListMsg.textContent = "已更新 " + name + " 的密码";
+          admListMsg.className = "admin-msg is-ok";
+        }
+      })();
+    });
+    row.appendChild(passIn);
+    row.appendChild(btnCh);
+    if (name !== SUPER_ADMIN) {
+      const btnDel = document.createElement("button");
+      btnDel.type = "button";
+      btnDel.className = "outline secondary";
+      btnDel.textContent = "删除";
+      btnDel.addEventListener("click", () => {
+        if (!window.confirm("确定删除账号 " + name + " ？")) return;
+        void (async () => {
+          const r = await fetch("/api/admin/accounts/" + encodeURIComponent(name), {
+            method: "DELETE",
+            credentials: "include",
+          });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok) {
+            if (admListMsg) {
+              admListMsg.textContent = String((j && j.error) || "失败");
+              admListMsg.className = "admin-msg is-bad";
+            }
+            return;
+          }
+          await loadAdminsPanel();
+        })();
+      });
+      row.appendChild(btnDel);
+    }
+    admListMount.appendChild(row);
+  }
+}
+
 function setPanel(name) {
   navWiki.classList.toggle("is-active", name === "wiki");
   if (navFeatures) navFeatures.classList.toggle("is-active", name === "features");
   if (navJoinGuide) navJoinGuide.classList.toggle("is-active", name === "joinGuide");
   if (navEvents) navEvents.classList.toggle("is-active", name === "events");
   if (navStaff) navStaff.classList.toggle("is-active", name === "staff");
+  if (navAdmins) navAdmins.classList.toggle("is-active", name === "admins");
   if (navSite) navSite.classList.toggle("is-active", name === "site");
   panelWiki.hidden = name !== "wiki";
   if (panelFeatures) panelFeatures.hidden = name !== "features";
   if (panelJoinGuide) panelJoinGuide.hidden = name !== "joinGuide";
   if (panelEvents) panelEvents.hidden = name !== "events";
   if (panelStaff) panelStaff.hidden = name !== "staff";
+  if (panelAdmins) panelAdmins.hidden = name !== "admins";
   if (panelSite) panelSite.hidden = name !== "site";
   if (name === "features") {
     void loadFeaturesFromServer();
@@ -237,6 +572,9 @@ function setPanel(name) {
   }
   if (name === "staff") {
     void loadStaffPanelFromServer();
+  }
+  if (name === "admins") {
+    void loadAdminsPanel();
   }
   if (name === "site") {
     siteImgV = Date.now();
@@ -483,10 +821,93 @@ loginForm.addEventListener("submit", async (e) => {
     return;
   }
   showApp();
+  await refreshSessionUser();
   setPanel("wiki");
   await setEditMode("source");
   await loadWikiMd();
 });
+
+if (initialForm) {
+  initialForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (initialErr) {
+      initialErr.hidden = true;
+      initialErr.textContent = "";
+    }
+    const fd = new FormData(initialForm);
+    const password = String(fd.get("password") || "");
+    const password2 = String(fd.get("password2") || "");
+    if (password !== password2) {
+      if (initialErr) {
+        initialErr.textContent = "两次密码不一致";
+        initialErr.hidden = false;
+      }
+      return;
+    }
+    const r = await fetch("/api/admin/initial-setup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ password }),
+    });
+    if (!r.ok) {
+      let msg = "创建失败";
+      try {
+        const j = await r.json();
+        if (j && j.error) msg = j.error;
+      } catch {}
+      if (initialErr) {
+        initialErr.textContent = msg;
+        initialErr.hidden = false;
+      }
+      return;
+    }
+    if (loginForm) loginForm.hidden = false;
+    if (initialBlock) initialBlock.hidden = true;
+    showApp();
+    await refreshSessionUser();
+    setPanel("wiki");
+    await setEditMode("source");
+    await loadWikiMd();
+  });
+}
+
+if (changePwdForm) {
+  changePwdForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!chPwdMsg) return;
+    chPwdMsg.hidden = true;
+    const fd = new FormData(changePwdForm);
+    const currentPassword = String(fd.get("currentPassword") || "");
+    const newPassword = String(fd.get("newPassword") || "");
+    const newPassword2 = String(fd.get("newPassword2") || "");
+    if (newPassword !== newPassword2) {
+      chPwdMsg.textContent = "两次新密码不一致";
+      chPwdMsg.className = "admin-msg is-bad";
+      chPwdMsg.hidden = false;
+      return;
+    }
+    const r = await fetch("/api/admin/me/password", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    if (!r.ok) {
+      let msg = "修改失败";
+      try {
+        const j = await r.json();
+        if (j && j.error) msg = j.error;
+      } catch {}
+      chPwdMsg.textContent = msg;
+      chPwdMsg.className = "admin-msg is-bad";
+      chPwdMsg.hidden = false;
+      return;
+    }
+    markedCache = null;
+    window.location.assign("/admin/");
+  });
+}
 
 logoutBtn.addEventListener("click", async () => {
   try {
@@ -526,9 +947,68 @@ if (navStaff) {
     setPanel("staff");
   });
 }
+if (navAdmins) {
+  navAdmins.addEventListener("click", () => {
+    setPanel("admins");
+  });
+}
 if (navSite) {
   navSite.addEventListener("click", () => {
     setPanel("site");
+  });
+}
+if (admAddBtn) {
+  admAddBtn.addEventListener("click", () => {
+    const user = String((admNewUser && admNewUser.value) || "").trim();
+    const password = String((admNewPass && admNewPass.value) || "");
+    if (!user) {
+      if (admListMsg) {
+        admListMsg.textContent = "请填写账号";
+        admListMsg.className = "admin-msg is-bad";
+      }
+      return;
+    }
+    if (password.length < 8) {
+      if (admListMsg) {
+        admListMsg.textContent = "密码至少 8 位";
+        admListMsg.className = "admin-msg is-bad";
+      }
+      return;
+    }
+    void (async () => {
+      const r = await fetch("/api/admin/accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ user, password }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (admListMsg) {
+          admListMsg.textContent = String((j && j.error) || "失败");
+          admListMsg.className = "admin-msg is-bad";
+        }
+        return;
+      }
+      if (admNewUser) admNewUser.value = "";
+      if (admNewPass) admNewPass.value = "";
+      if (admListMsg) {
+        admListMsg.textContent = "已添加 " + user;
+        admListMsg.className = "admin-msg is-ok";
+      }
+      await loadAdminsPanel();
+    })();
+  });
+}
+if (admAuditRefresh) {
+  admAuditRefresh.addEventListener("click", () => {
+    void loadAuditLogs();
+  });
+}
+if (admAuditClearFilter && admAuditUserFilter) {
+  admAuditClearFilter.addEventListener("click", () => {
+    admAuditUserFilter.value = "";
+    void loadAuditLogs();
   });
 }
 
@@ -2796,8 +3276,10 @@ if (siteHeroFloatInput) {
 }
 
 (async () => {
+  await applyPreflight();
   if (await sessionOk()) {
     showApp();
+    await refreshSessionUser();
     setPanel("wiki");
     await setEditMode("source");
     await loadWikiMd();

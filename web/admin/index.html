@@ -17,8 +17,23 @@
 <header>
 <p class="admin-brand" aria-hidden="true">云星 Cloud Star</p>
 <h1 id="login-heading">管理后台</h1>
-<p>请使用管理员账号登录。勿在链接、聊天或截图中发送密码。</p>
+<p>使用本地加密账号数据登录。勿在链接、聊天或截图中发送密码。</p>
 </header>
+<p id="preflightErr" class="admin-alert" role="alert" hidden></p>
+<div id="initialBlock" class="admin-register-block" hidden>
+<h2 class="admin-h2">首次设置主管理员</h2>
+<p class="admin-muted">不对外开放注册。主账号固定为 <code>3158299835</code>，仅可在此设置其初始密码。其他管理员须由主账号登录后在「账号」中新增。</p>
+<form id="initialForm">
+<label for="init-user">账号</label>
+<input type="text" id="init-user" value="3158299835" readonly aria-readonly="true" class="admin-readonly-user"/>
+<label for="init-pass">密码</label>
+<input type="password" id="init-pass" name="password" autocomplete="new-password" required minlength="8"/>
+<label for="init-pass2">确认密码</label>
+<input type="password" id="init-pass2" name="password2" autocomplete="new-password" required minlength="8"/>
+<p id="initialErr" class="admin-alert" role="alert" aria-live="assertive" hidden></p>
+<button type="submit">创建并进入</button>
+</form>
+</div>
 <form id="loginForm">
 <label for="login-user">账号</label>
 <input type="text" id="login-user" name="user" autocomplete="username" required autocapitalize="none" spellcheck="false"/>
@@ -36,9 +51,11 @@
 <header class="admin-apphead">
 <div>
 <h1 class="admin-app-title">管理后台</h1>
-<p>已登录 · 选择模块</p>
+<p>已登录 <span id="sessionUserLabel" class="admin-muted"></span> · 选择模块</p>
 </div>
+<div class="admin-apphead__actions">
 <button type="button" class="secondary" id="logoutBtn">退出登录</button>
+</div>
 </header>
 <nav class="admin-nav" aria-label="后台模块">
 <ul>
@@ -47,6 +64,7 @@
 <li><button type="button" class="outline admin-nav__btn" id="navJoinGuide" data-panel="joinGuide">加入指南</button></li>
 <li><button type="button" class="outline admin-nav__btn" id="navEvents" data-panel="events">事件</button></li>
 <li><button type="button" class="outline admin-nav__btn" id="navStaff" data-panel="staff">成员</button></li>
+<li><button type="button" class="outline admin-nav__btn" id="navAdmins" data-panel="admins">账号</button></li>
 <li><button type="button" class="outline admin-nav__btn" id="navSite" data-panel="site">站点图</button></li>
 </ul>
 </nav>
@@ -211,6 +229,48 @@
 </div>
 </div>
 </div>
+</div>
+</article>
+<article id="panelAdmins" class="admin-panel" hidden>
+<p class="admin-meta" id="admPanelMeta">本页可修改本账号密码、查看各管理员的操作记录。主账号还可管理子账号（仅主账号见下方管理区）。</p>
+<div id="admChangePwdBlock" class="admin-inline-change-pwd">
+<h2 class="admin-h2">修改本账号密码</h2>
+<form id="changePwdForm">
+<label for="chPwdCurrent">当前密码</label>
+<input type="password" id="chPwdCurrent" name="currentPassword" autocomplete="current-password" required/>
+<label for="chPwdNew">新密码</label>
+<input type="password" id="chPwdNew" name="newPassword" autocomplete="new-password" required minlength="8"/>
+<label for="chPwdNew2">确认新密码</label>
+<input type="password" id="chPwdNew2" name="newPassword2" autocomplete="new-password" required minlength="8"/>
+<p id="chPwdMsg" class="admin-msg" role="status" aria-live="polite" hidden></p>
+<button type="submit" id="chPwdSubmit">保存新密码</button>
+</form>
+</div>
+<div id="admSuperBlock" class="admin-super-block" hidden>
+<p class="admin-meta">子账号管理：新增、改密、删除。主账号 <code>3158299835</code> 不可删。重名无法添加。</p>
+<div class="admin-admins-toolbar">
+<fieldset>
+<legend>新增管理员</legend>
+<label for="admNewUser">账号</label>
+<input type="text" id="admNewUser" autocomplete="off" spellcheck="false" maxlength="64"/>
+<label for="admNewPass">密码</label>
+<input type="password" id="admNewPass" autocomplete="new-password" minlength="8"/>
+<button type="button" id="admAddBtn" class="outline contrast">添加</button>
+</fieldset>
+</div>
+<p id="admListMsg" class="admin-msg" role="status"></p>
+<div id="admListMount" class="admin-admins-list"></div>
+</div>
+<div class="admin-audit-block">
+<h2 class="admin-h2">操作记录</h2>
+<p class="admin-muted">记录<strong>各管理员</strong>的写操作、登录、退出等；含<strong>类型</strong>与<strong>说明</strong>。持久化 <code>data/admin-audit.jsonl</code>。旧数据可能无「类型/说明」列。</p>
+<div class="admin-audit-bar">
+<label for="admAuditUserFilter" class="admin-audit-filter-lab">按账号筛选</label>
+<input type="text" id="admAuditUserFilter" class="admin-audit-filter-inp" placeholder="留空为全部" maxlength="64" autocomplete="off" spellcheck="false"/>
+<button type="button" id="admAuditClearFilter" class="outline secondary">全部</button>
+<button type="button" id="admAuditRefresh" class="outline secondary">刷新</button>
+</div>
+<div id="admAuditMount" class="admin-audit-table-wrap" role="region" aria-label="操作记录"></div>
 </div>
 </article>
 <article id="panelSite" class="admin-panel" hidden>

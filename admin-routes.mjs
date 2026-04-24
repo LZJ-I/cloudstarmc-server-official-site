@@ -1,9 +1,12 @@
-import crypto from "node:crypto";
+﻿import crypto from "node:crypto";
 import express from "express";
 import multer from "multer";
 import session from "express-session";
 import fsp from "node:fs/promises";
 import path from "node:path";
+import { SUPER_ADMIN_USER } from "./admin-auth-store.mjs";
+import { createAuditLog } from "./admin-audit-log.mjs";
+import { getAuditLabel } from "./admin-audit-labels.mjs";
 
 const WIKI_UPLOAD_IMAGE_RE = /\.(png|jpe?g|gif|webp|svg|avif)$/i;
 
@@ -50,7 +53,8 @@ function sniffImageMime(buf) {
 }
 
 export function createAdminRouter(options) {
-  const { wikiMdPath, featuresJsonPath, joinGuideJsonPath, eventsJsonPath, staffRootPath, webDir, verifyUser, verifyPassword, sessionMaxMs } = options;
+  const { wikiMdPath, featuresJsonPath, joinGuideJsonPath, eventsJsonPath, staffRootPath, webDir, authStore, sessionMaxMs, auditLogPath } = options;
+  const auditLog = createAuditLog(auditLogPath || "");
   const wikiMdResolved = path.resolve(wikiMdPath);
   const wikiUploadDir = path.resolve(path.join(path.dirname(wikiMdResolved), "uploads"));
   const featuresJsonResolved = featuresJsonPath ? path.resolve(featuresJsonPath) : null;
@@ -143,10 +147,53 @@ export function createAdminRouter(options) {
     next();
   });
 
+  function fullApiPath(req) {
+    const b = String(req.baseUrl || "");
+    const p = String(req.path || "");
+    if (b + p) return b + p;
+    return String(req.originalUrl || "").split("?")[0] || "";
+  }
+
+  router.use((req, res, next) => {
+    const m = req.method;
+    if (m === "GET" || m === "HEAD" || m === "OPTIONS") return next();
+    if (m === "POST" && (req.path === "/logout" || String(req.path || "").endsWith("/logout"))) return next();
+    const t0 = Date.now();
+    res.on("finish", () => {
+      const u = String((req.session && req.session.adminUser) || "");
+      if (!u) return;
+      const routePath = String(req.path || "");
+      if (m === "PUT" && routePath === "/me/password") return;
+      const pth = fullApiPath(req);
+      if (pth.includes("/audit-logs")) return;
+      const label = getAuditLabel(m, routePath);
+      const ip = String((req.ip != null && req.ip) || (req.socket && req.socket.remoteAddress) || "");
+      void auditLog.append({
+        user: u,
+        ip,
+        method: m,
+        path: pth,
+        status: res.statusCode,
+        ms: Date.now() - t0,
+        op: label.op,
+        summary: label.summary,
+      });
+    });
+    next();
+  });
+
   function requireAdmin(req, res, next) {
-    if (!req.session.admin) {
+    if (!req.session.admin || !req.session.adminUser) {
       res.setHeader("Cache-Control", "no-store");
       return res.status(401).json({ error: "unauthorized" });
+    }
+    next();
+  }
+
+  function requireSuperAdmin(req, res, next) {
+    if (String(req.session.adminUser || "") !== SUPER_ADMIN_USER) {
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(403).json({ error: "需要主管理员权限" });
     }
     next();
   }
@@ -181,29 +228,160 @@ export function createAdminRouter(options) {
     return s;
   }
 
-  router.post("/login", json64k, (req, res) => {
+  router.get("/preflight", async (req, res) => {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
-    const user = req.body && typeof req.body.user === "string" ? req.body.user : "";
+    try {
+      const p = await authStore.preflight();
+      return res.json(p);
+    } catch (e) {
+      return res.status(500).json({ encryptionOk: false, needsInitialSetup: false, error: String((e && e.message) || e) });
+    }
+  });
+
+  router.post("/initial-setup", json64k, async (req, res) => {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
     const password = req.body && typeof req.body.password === "string" ? req.body.password : "";
-    if (!verifyUser(user) || !verifyPassword(password)) {
-      return res.status(401).json({ error: "账号或密码错误" });
+    try {
+      await authStore.initialSetupSuperOnly(password);
+    } catch (e) {
+      const msg = String((e && e.message) || e);
+      const code = msg.includes("已初始化") ? 403 : 400;
+      return res.status(code).json({ error: msg });
     }
     req.session.regenerate((err) => {
       if (err) {
         return res.status(500).json({ error: String(err && err.message ? err.message : err) });
       }
       req.session.admin = true;
-      return res.json({ ok: true });
+      req.session.adminUser = SUPER_ADMIN_USER;
+      return res.json({ ok: true, user: SUPER_ADMIN_USER });
+    });
+  });
+
+  router.get("/accounts", requireAdmin, requireSuperAdmin, async (req, res) => {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const users = await authStore.listUsernames();
+      return res.json({ users });
+    } catch (e) {
+      return res.status(500).json({ error: String((e && e.message) || e) });
+    }
+  });
+
+  router.post("/accounts", requireAdmin, requireSuperAdmin, json64k, async (req, res) => {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    const user = req.body && typeof req.body.user === "string" ? req.body.user : "";
+    const password = req.body && typeof req.body.password === "string" ? req.body.password : "";
+    try {
+      await authStore.addUser(user, password);
+    } catch (e) {
+      const msg = String((e && e.message) || e);
+      return res.status(400).json({ error: msg });
+    }
+    return res.json({ ok: true });
+  });
+
+  router.put("/accounts/:name", requireAdmin, requireSuperAdmin, json64k, async (req, res) => {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    let name = "";
+    try {
+      name = decodeURIComponent(String(req.params.name || "").trim());
+    } catch {
+      return res.status(400).json({ error: "非法账号" });
+    }
+    const password = req.body && typeof req.body.password === "string" ? req.body.password : "";
+    try {
+      await authStore.setUserPassword(name, password);
+    } catch (e) {
+      const msg = String((e && e.message) || e);
+      return res.status(400).json({ error: msg });
+    }
+    return res.json({ ok: true });
+  });
+
+  router.delete("/accounts/:name", requireAdmin, requireSuperAdmin, async (req, res) => {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    let name = "";
+    try {
+      name = decodeURIComponent(String(req.params.name || "").trim());
+    } catch {
+      return res.status(400).json({ error: "非法账号" });
+    }
+    try {
+      await authStore.removeUser(name);
+    } catch (e) {
+      const msg = String((e && e.message) || e);
+      const code = msg.includes("不能删除") || msg.includes("不存在") ? 400 : 500;
+      return res.status(code).json({ error: msg });
+    }
+    return res.json({ ok: true });
+  });
+
+  router.get("/audit-logs", requireAdmin, async (req, res) => {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    const q = req.query && req.query.limit != null ? Number(req.query.limit) : 200;
+    const userQ = req.query && req.query.user != null ? String(req.query.user) : "";
+    try {
+      const entries = await auditLog.readLast(q, userQ);
+      return res.json({ entries });
+    } catch (e) {
+      return res.status(500).json({ error: String((e && e.message) || e) });
+    }
+  });
+
+  router.post("/login", json64k, async (req, res) => {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    const user = req.body && typeof req.body.user === "string" ? req.body.user : "";
+    const password = req.body && typeof req.body.password === "string" ? req.body.password : "";
+    let ok = false;
+    try {
+      ok = await authStore.verifyLogin(user, password);
+    } catch {
+      ok = false;
+    }
+    if (!ok) {
+      return res.status(401).json({ error: "账号或密码错误" });
+    }
+    const u = String(user || "").trim();
+    req.session.regenerate((err) => {
+      if (err) {
+        return res.status(500).json({ error: String(err && err.message ? err.message : err) });
+      }
+      req.session.admin = true;
+      req.session.adminUser = u;
+      return res.json({ ok: true, user: u });
     });
   });
 
   router.post("/logout", (req, res) => {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
+    const u = String(req.session && req.session.adminUser ? req.session.adminUser : "");
+    const ip = String((req.ip != null && req.ip) || (req.socket && req.socket.remoteAddress) || "");
+    const pth = fullApiPath(req);
+    const label = getAuditLabel("POST", "/logout");
     req.session.destroy((err) => {
       if (err) {
         return res.status(500).json({ error: String(err && err.message ? err.message : err) });
+      }
+      if (u) {
+        void auditLog.append({
+          user: u,
+          ip,
+          method: "POST",
+          path: pth,
+          status: 200,
+          op: label.op,
+          summary: label.summary,
+        });
       }
       return res.json({ ok: true });
     });
@@ -212,18 +390,58 @@ export function createAdminRouter(options) {
   router.get("/session", (req, res) => {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
-    if (!req.session.admin) {
+    if (!req.session.admin || !req.session.adminUser) {
       return res.status(401).json({ ok: false });
     }
-    return res.json({ ok: true });
+    const u = String(req.session.adminUser || "");
+    return res.json({ ok: true, user: u, isSuper: u === SUPER_ADMIN_USER });
   });
 
   router.head("/session", (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!req.session.admin) {
+    if (!req.session.admin || !req.session.adminUser) {
       return res.status(401).end();
     }
     return res.status(200).end();
+  });
+
+  router.put("/me/password", requireAdmin, json64k, async (req, res) => {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    const t0 = Date.now();
+    const me = String(req.session.adminUser || "").trim();
+    const currentPassword =
+      req.body && typeof req.body.currentPassword === "string" ? req.body.currentPassword : "";
+    const newPassword = req.body && typeof req.body.newPassword === "string" ? req.body.newPassword : "";
+    const pth = fullApiPath(req);
+    const ip = String((req.ip != null && req.ip) || (req.socket && req.socket.remoteAddress) || "");
+    const pwLabel = getAuditLabel("PUT", "/me/password");
+    try {
+      await authStore.changeOwnPassword(me, currentPassword, newPassword);
+    } catch (e) {
+      const msg = String((e && e.message) || e);
+      const code =
+        msg.includes("当前密码") || msg.includes("请填写") || msg.includes("至少") || msg.includes("缺少")
+          ? 400
+          : 500;
+      return res.status(code).json({ error: msg });
+    }
+    void auditLog.append({
+      user: me,
+      ip,
+      method: "PUT",
+      path: pth,
+      status: 200,
+      ms: Date.now() - t0,
+      op: pwLabel.op,
+      summary: pwLabel.summary,
+    });
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ error: String(err && err.message ? err.message : err) });
+      }
+      return res.json({ ok: true });
+    });
   });
 
   router.get("/wiki", requireAdmin, async (req, res) => {

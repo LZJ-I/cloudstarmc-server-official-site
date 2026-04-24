@@ -645,6 +645,103 @@ body {
   font-size: 0.88rem;
   color: var(--pico-muted-color);
 }
+.admin-register-block {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.admin-h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.35rem 0;
+  font-weight: 600;
+}
+.admin-readonly-user {
+  opacity: 0.85;
+  cursor: not-allowed;
+}
+.admin-admins-toolbar fieldset {
+  margin-bottom: 1rem;
+}
+.admin-admins-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.admin-admins-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--pico-border-radius);
+}
+.admin-admins-row__name {
+  font-weight: 600;
+  min-width: 8rem;
+}
+.admin-admins-row__tag {
+  font-size: 0.75rem;
+  color: var(--pico-muted-color);
+}
+.admin-inline-change-pwd {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.admin-super-block {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.admin-audit-block {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+.admin-audit-block h2 {
+  margin-top: 0;
+}
+.admin-audit-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.admin-audit-filter-lab {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--pico-muted-color);
+}
+.admin-audit-filter-inp {
+  max-width: 14rem;
+  margin: 0;
+}
+.admin-audit-table-wrap {
+  overflow-x: auto;
+  max-height: min(50vh, 28rem);
+  overflow-y: auto;
+}
+table.admin-audit-table {
+  width: 100%;
+  font-size: 0.8rem;
+  border-collapse: collapse;
+}
+table.admin-audit-table th,
+table.admin-audit-table td {
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  vertical-align: top;
+}
+table.admin-audit-table th {
+  color: var(--pico-muted-color);
+  font-weight: 600;
+}
+table.admin-audit-table td {
+  word-break: break-all;
+}
 .admin-app-stage header.admin-apphead {
   display: flex;
   flex-wrap: wrap;
@@ -654,6 +751,12 @@ body {
   margin-bottom: 0.5rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.admin-apphead__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
 }
 .admin-app-title {
   margin-bottom: 0.25rem;
@@ -698,6 +801,23 @@ body {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+}
+.admin-change-pwd-dlg {
+  padding: 0;
+  border: none;
+  max-width: min(28rem, 94vw);
+  background: var(--pico-card-background-color);
+  border-radius: var(--pico-border-radius);
+  color: var(--pico-color);
+}
+.admin-change-pwd-dlg::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+.admin-change-pwd-dlg__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
 }
 .admin-uploads-dlg {
   padding: 0;
