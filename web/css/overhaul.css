@@ -720,8 +720,8 @@ section#team.or-team-section{
   margin:0;
   font-size:14px;
   line-height:1.6;
-  color:rgba(203,213,225,.88);
-  max-width:65ch;
+  white-space: pre-line;
+  color:rgba(...);
 }
 .events-timeline__item--major .events-timeline__body{
   font-size:15px;
