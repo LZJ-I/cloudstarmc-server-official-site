@@ -153,6 +153,7 @@ export function initRoutes(onWikiMounted) {
   if (!homeEl || !wikiEl || !appMain) return;
 
   var routeAppliedOnce = false;
+  var lastAppliedRoute = null;
 
   function setSubPanelsInstant(isHome) {
     if (navWiki) {
@@ -162,6 +163,7 @@ export function initRoutes(onWikiMounted) {
   }
 
   function applyRoute(route) {
+    var sameRoute = lastAppliedRoute === route;
     var isHome = route === "home";
     if (isHome) wikiHtmlLoaded = false;
     homeEl.classList.toggle("view--active", isHome);
@@ -185,13 +187,15 @@ export function initRoutes(onWikiMounted) {
     setWikiTocVisible(!isHome);
     if (!isHome) syncWikiToc();
 
-    if (isHome) {
-      refreshHeroFloatImages(homeEl);
-    } else {
-      refreshHeroFloatImages(wikiEl);
+    if (!sameRoute) {
+      if (isHome) {
+        refreshHeroFloatImages(homeEl);
+      } else {
+        refreshHeroFloatImages(wikiEl);
+      }
     }
 
-    if (routeAppliedOnce && !prefersReducedMotion) {
+    if (routeAppliedOnce && !prefersReducedMotion && !sameRoute) {
       var incomingView = isHome ? homeEl : wikiEl;
       homeEl.classList.remove("view--enter");
       wikiEl.classList.remove("view--enter");
@@ -218,6 +222,7 @@ export function initRoutes(onWikiMounted) {
       window.setTimeout(clearEnter, 520);
     }
     routeAppliedOnce = true;
+    lastAppliedRoute = route;
   }
 
   function show(route, done) {
@@ -245,6 +250,13 @@ export function initRoutes(onWikiMounted) {
       var r = el.getAttribute("data-route") || "home";
       show(r, function () {
         history.pushState({ route: r }, "", r === "wiki" ? "/wiki" : "/home");
+        if (r === "home") {
+          requestAnimationFrame(function () {
+            var id =
+              location.hash && location.hash.length > 1 ? location.hash.slice(1) : "";
+            scrollToHash(id);
+          });
+        }
       });
     });
   });
