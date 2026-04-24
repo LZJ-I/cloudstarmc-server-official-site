@@ -1,9 +1,9 @@
 {
-  "order": 4,
-  "name": "",
+  "order": 5,
+  "name": "Pete_Young",
   "title": "建筑",
-  "bio": "建筑",
-  "color": "#059669",
+  "bio": "他们都叫我鸡哥，让云星变得更华丽是我的目标。",
+  "color": "#0000FF",
   "headFile": "head.png",
-  "portraitFile": "head.png"
+  "portraitFile": "portrait.png"
 }

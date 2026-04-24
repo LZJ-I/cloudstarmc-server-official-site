@@ -1,9 +1,9 @@
 {
-  "order": 3,
-  "name": "",
+  "order": 4,
+  "name": "Xmengli",
   "title": "建筑",
-  "bio": "待定…",
+  "bio": "只想默默的搞建筑…",
   "color": "#2563EB",
   "headFile": "head.png",
-  "portraitFile": "head.png"
+  "portraitFile": "portrait.png"
 }
