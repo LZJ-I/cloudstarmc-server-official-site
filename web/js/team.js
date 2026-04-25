@@ -5,7 +5,7 @@ const OR_TEAM_XF_DONE_MS = 560;
 const OR_TEAM_STACK_H_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 var STAFF_TPL_HEAD = "/staff/_template/head.png";
 var STAFF_TPL_PORTRAIT = "/staff/_template/portrait.png";
-function staffAssetUrl(memberId, file) {
+function staffAssetUrl(memberId, file, assetBust) {
   var f = String(file == null ? "" : file).replace(/\\/g, "/").trim();
   if (!f) return STAFF_TPL_HEAD;
   if (f.indexOf("/") >= 0) {
@@ -18,17 +18,22 @@ function staffAssetUrl(memberId, file) {
   if (!memberId) return STAFF_TPL_HEAD;
   var u = "/staff/" + encodeURIComponent(String(memberId)) + "/" + encodeURIComponent(f);
   var bust =
-    typeof window !== "undefined" && window.__STAFF_PREVIEW_BUST != null && window.__STAFF_PREVIEW_BUST !== ""
-      ? String(window.__STAFF_PREVIEW_BUST)
-      : "";
+    assetBust != null && String(assetBust) !== ""
+      ? String(assetBust)
+      : typeof window !== "undefined" && window.__STAFF_PREVIEW_BUST != null && window.__STAFF_PREVIEW_BUST !== ""
+        ? String(window.__STAFF_PREVIEW_BUST)
+        : "";
   if (bust) u += (u.indexOf("?") >= 0 ? "&" : "?") + "v=" + encodeURIComponent(bust);
   return u;
 }
-function staffHeadUrl(id, headFile) {
-  return staffAssetUrl(id, headFile || "head.png");
+function staffHeadUrl(id, headFile, assetBust) {
+  return staffAssetUrl(id, headFile || "head.png", assetBust);
 }
-function staffPortraitUrl(id, portraitFile) {
-  return staffAssetUrl(id, portraitFile || "portrait.png");
+function staffPortraitUrl(id, portraitFile, assetBust) {
+  return staffAssetUrl(id, portraitFile || "portrait.png", assetBust);
+}
+function memberAssetBust(m) {
+  return m && m.assetBust != null && String(m.assetBust) !== "" ? String(m.assetBust) : "";
 }
 function measureTeamSlidePaneNaturalHeight(el, widthPx) {
   if (!el || widthPx < 8) return 0;
@@ -382,7 +387,8 @@ export function initOriginTeam(orStaff) {
       probe.onload = function () {
         if (tok !== portraitTok) return;
         clearNote();
-        var u = staffPortraitUrl(id, pf);
+        var ub = memberAssetBust(m);
+        var u = staffPortraitUrl(id, pf, ub);
         requestAnimationFrame(function () {
           applySrc(u);
         });
@@ -391,11 +397,12 @@ export function initOriginTeam(orStaff) {
         if (tok !== portraitTok) return;
         probe.onerror = null;
         afterNote("本目录 " + (pf || "portrait.png") + " 未成功加载，正在尝试小头像个文件。");
+        var ub = memberAssetBust(m);
         var probe2 = new Image();
         probe2.onload = function () {
           if (tok !== portraitTok) return;
           afterNote("本目录立绘未成功加载，已暂用小头像同图。");
-          applySrc(staffHeadUrl(id, m.headFile));
+          applySrc(staffHeadUrl(id, m.headFile, ub));
         };
         probe2.onerror = function () {
           if (tok !== portraitTok) return;
@@ -413,9 +420,9 @@ export function initOriginTeam(orStaff) {
           };
           probe3.src = STAFF_TPL_PORTRAIT;
         };
-        probe2.src = staffHeadUrl(id, m.headFile);
+        probe2.src = staffHeadUrl(id, m.headFile, ub);
       };
-      probe.src = staffPortraitUrl(id, pf);
+      probe.src = staffPortraitUrl(id, pf, memberAssetBust(m));
     } else {
       m._portraitNote = "成员 id 缺失，大图使用 _template/head.png。";
       refreshMemberBio(memberIdx);
@@ -519,7 +526,7 @@ export function initOriginTeam(orStaff) {
     b.className = "or-team__face";
     b.setAttribute("aria-label", m.name);
     var im = document.createElement("img");
-    im.src = staffHeadUrl(m.id, m.headFile);
+    im.src = staffHeadUrl(m.id, m.headFile, memberAssetBust(m));
     im.onerror = function () {
       m._headNote = (m.headFile || "head.png") + " 未加载，已换用 _template/head.png。";
       refreshMemberBio(i);

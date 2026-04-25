@@ -120,6 +120,21 @@ async function buildTeamJson() {
       meta.id = d.name;
       const disp = meta.name != null ? String(meta.name).trim() : "";
       meta.name = disp || "示例";
+      const headF =
+        (meta.headFile != null && String(meta.headFile).trim()) || "head.png";
+      const portF =
+        (meta.portraitFile != null && String(meta.portraitFile).trim()) || "portrait.png";
+      let bustMs = 0;
+      for (const rel of [path.basename(headF), path.basename(portF)]) {
+        if (!rel) continue;
+        try {
+          const st = await fsp.stat(path.join(staffRoot, d.name, rel));
+          if (Number.isFinite(st.mtimeMs) && st.mtimeMs > bustMs) bustMs = st.mtimeMs;
+        } catch {
+          // 文件可能尚未上传
+        }
+      }
+      if (bustMs > 0) meta.assetBust = String(Math.floor(bustMs));
       meta.__sortDir = d.name;
       entries.push(meta);
     }
@@ -296,6 +311,9 @@ const server = http.createServer(async (req, res) => {
     const relW = path.relative(path.resolve(WEB_ROOT), path.resolve(filePath)).replace(/\\/g, "/");
     const underWikiUploads =
       relW === "wiki/uploads" || relW.startsWith("wiki/uploads/");
+    // 成员 head.png / portrait.png 等常通过后台覆盖同路径文件；与 wiki 图库一样避免长缓存，否则改图后仍像「旧立绘（旧图）」。
+    const underStaffAssets =
+      relW === "staff" || relW.startsWith("staff/");
     const underAdmin = relW === "admin" || relW.startsWith("admin/");
     const adminEditableSiteImg =
       relW === "img/favicon.png" ||
@@ -303,7 +321,7 @@ const server = http.createServer(async (req, res) => {
       relW === "img/hero-float.png";
     res.setHeader(
       "Cache-Control",
-      underWikiUploads || adminEditableSiteImg
+      underWikiUploads || underStaffAssets || adminEditableSiteImg
         ? "private, max-age=0, must-revalidate"
         : underAdmin
           ? "no-store"
