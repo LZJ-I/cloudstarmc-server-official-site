@@ -31,7 +31,6 @@
 ├─ server.mjs                 站点服务入口
 ├─ admin-routes.mjs           管理后台相关接口
 ├─ wiki-build.mjs             百科构建脚本
-├─ scripts/                   各类构建、补丁、维护脚本
 ├─ package.json               项目依赖与脚本
 └─ 依赖与部署.md             部署与运行说明
 ```
