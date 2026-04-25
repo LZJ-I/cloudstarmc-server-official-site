@@ -28,10 +28,13 @@
 │  ├─ join-guide/             加入指南数据
 │  ├─ staff/                  成员展示数据与资源
 │  └─ admin/                  管理后台页面与脚本
-├─ server.mjs                 站点服务入口
-├─ admin-routes.mjs           管理后台相关接口
-├─ wiki-build.mjs             百科构建脚本
-├─ package.json               项目依赖与脚本
+├─ server/                    Node 服务端（入口、管理接口、百科构建等）
+│  ├─ server.mjs              HTTP 服务入口
+│  ├─ admin-routes.mjs        管理后台 API
+│  ├─ admin-auth-store.mjs    管理员登录与凭据
+│  ├─ admin-audit-*.mjs       管理操作审计
+│  └─ wiki-build.mjs          百科 Markdown 构建
+├─ package.json               项目依赖与 npm 脚本
 └─ 依赖与部署.md             部署与运行说明
 ```
 
@@ -88,6 +91,8 @@ npm start
 - 加入指南：`web/join-guide/join-guide.json`
 - 成员资料：`web/staff/`
 
+**用管理后台怎么配、和磁盘文件的对应关系**：见 [`web/admin/README.md`](web/admin/README.md)。各模块的字段说明与 `staff` 同风格写在同目录的 `README.md`（如 [`web/staff/README.md`](web/staff/README.md)）。
+
 ## 适用场景
 
 这个仓库适合以下用途：
@@ -105,5 +110,6 @@ npm start
 
 - `README.md`
 - `依赖与部署.md`
-- `web/admin/` 与 `admin-routes.mjs`
-- `wiki-build.mjs`
+- `web/admin/README.md`（后台各 Tab 与落盘路径）
+- `web/admin/` 前端与 `server/admin-routes.mjs` API
+- `server/wiki-build.mjs`（百科构建）
