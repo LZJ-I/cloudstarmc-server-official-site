@@ -9,14 +9,15 @@ import { createAuthStore } from "./admin-auth-store.mjs";
 import { buildWikiPublicJson } from "./wiki-build.mjs";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
-const webDir = path.join(__dirname, "web");
-const WEB_ROOT = existsSync(path.join(webDir, "index.html")) ? webDir : __dirname;
+const projectRoot = path.join(__dirname, "..");
+const webDir = path.join(projectRoot, "web");
+const WEB_ROOT = existsSync(path.join(webDir, "index.html")) ? webDir : projectRoot;
 const PORT = Number(process.env.PORT || 8080); // port
 const HOST = process.env.HOST || "0.0.0.0";
 
 const SESSION_MAX_MS = 48 * 60 * 60 * 1000;
 const WIKI_DIR = path.join(webDir, "wiki");
-const dataDir = path.join(__dirname, "data");
+const dataDir = path.join(projectRoot, "data");
 void fsp.mkdir(dataDir, { recursive: true }).catch(() => {});
 const authStore = createAuthStore({ dataDir });
 

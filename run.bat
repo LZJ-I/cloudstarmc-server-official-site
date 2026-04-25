@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
 if exist ".tools\node\node.exe" (
-  ".tools\node\node.exe" server.mjs
+  ".tools\node\node.exe" server\server.mjs
 ) else (
-  node server.mjs
+  node server\server.mjs
 )

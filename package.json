@@ -2,7 +2,7 @@
   "name": "server-official-site",
   "private": true,
   "scripts": {
-    "start": "node server.mjs"
+    "start": "node server/server.mjs"
   },
   "dependencies": {
     "@picocss/pico": "^2.1.1",
