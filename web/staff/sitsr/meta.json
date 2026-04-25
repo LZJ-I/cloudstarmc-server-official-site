@@ -1,8 +1,8 @@
 {
   "order": 1,
   "name": "sitsr",
-  "title": "服主 / 策划",
-  "bio": "一个帅哥",
+  "title": "总策划",
+  "bio": "专注于服务器未来蓝图的描绘与长远规划。",
   "color": "#FF0000",
   "headFile": "head.png",
   "portraitFile": "portrait.png"
